@@ -1,0 +1,135 @@
+.controls-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.controls-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.recording-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #fee2e2;
+  border: 2px solid #ef4444;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.info-badge {
+  padding: 8px 16px;
+  background-color: #eff6ff;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.controls-group {
+  display: flex;
+  gap: 12px;
+}
+
+.control-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: white;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.control-button:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.control-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.control-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-button .icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.control-button .label {
+  font-size: 14px;
+}
+
+.control-button.recording {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.control-button.recording:hover {
+  background-color: #fecaca;
+}
+
+.control-button.complete {
+  background-color: #f0fdf4;
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.control-button.complete.ready {
+  background-color: #10b981;
+  color: white;
+}
+
+.control-button.complete.ready:hover {
+  background-color: #059669;
+}
+
+.control-button.undo,
+.control-button.redo {
+  padding: 12px 16px;
+}

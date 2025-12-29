@@ -1,0 +1,243 @@
+/**
+ * Global application context for state management
+ */
+
+import { createContext, useContext, useState } from 'react';
+import type { ReactNode } from 'react';
+import type {
+  AppState,
+  RecordingState,
+  UserSession,
+  MotionTrajectory,
+  Vector2D,
+  RobotArmConfig
+} from '../types';
+import { getRandomizedPromptOrder } from '../constants/prompts';
+import { generateSessionId } from '../utils/dataExport';
+import { SHOULDER_POSITION, ROBOT_CONFIG } from '../constants/config';
+
+interface AppContextType {
+  // Application state
+  appState: AppState;
+  setAppState: (state: AppState) => void;
+
+  // User session
+  userSession: UserSession | null;
+  initializeSession: (userId: string | null, promptSet: 'laban' | 'metaphor') => void;
+
+  // Recording state
+  recordingState: RecordingState;
+  setRecordingState: (state: RecordingState) => void;
+
+  // Current motion
+  currentTrajectory: MotionTrajectory | null;
+  setCurrentTrajectory: (trajectory: MotionTrajectory | null) => void;
+
+  // Robot configuration
+  robotConfig: RobotArmConfig;
+  setRobotConfig: (config: RobotArmConfig | ((prev: RobotArmConfig) => RobotArmConfig)) => void;
+
+  // Target position
+  targetPosition: Vector2D | null;
+  setTargetPosition: (position: Vector2D) => void;
+
+  // Actions
+  startRecording: () => void;
+  stopRecording: () => void;
+  startPlayback: () => void;
+  stopPlayback: () => void;
+  resetCurrentMotion: () => void;
+  completeCurrentMotion: () => void;
+  nextPrompt: () => void;
+
+  // Undo/Redo
+  undoHistory: MotionTrajectory[];
+  redoHistory: MotionTrajectory[];
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [appState, setAppState] = useState<AppState>('splash');
+  const [userSession, setUserSession] = useState<UserSession | null>(null);
+  const [recordingState, setRecordingState] = useState<RecordingState>('idle');
+  const [currentTrajectory, setCurrentTrajectory] = useState<MotionTrajectory | null>(null);
+  const [targetPosition, setTargetPosition] = useState<Vector2D | null>(null);
+  const [undoHistory, setUndoHistory] = useState<MotionTrajectory[]>([]);
+  const [redoHistory, setRedoHistory] = useState<MotionTrajectory[]>([]);
+
+  const [robotConfig, setRobotConfig] = useState<RobotArmConfig>({
+    shoulderPosition: SHOULDER_POSITION,
+    upperArmLength: ROBOT_CONFIG.upperArmLength,
+    lowerArmLength: ROBOT_CONFIG.lowerArmLength,
+    shoulderAngle: ROBOT_CONFIG.initialShoulderAngle,
+    elbowAngle: ROBOT_CONFIG.initialElbowAngle
+  });
+
+  const initializeSession = (userId: string | null, promptSet: 'laban' | 'metaphor') => {
+    const sessionId = generateSessionId();
+    const promptOrder = getRandomizedPromptOrder();
+
+    setUserSession({
+      userId,
+      sessionId,
+      promptSet,
+      promptOrder,
+      completedMotions: [],
+      currentPromptIndex: 0,
+      startTime: Date.now()
+    });
+  };
+
+  const startRecording = () => {
+    setRecordingState('recording');
+    setRedoHistory([]); // Clear redo history when starting new recording
+  };
+
+  const stopRecording = () => {
+    setRecordingState('idle');
+  };
+
+  const startPlayback = () => {
+    setRecordingState('playing');
+  };
+
+  const stopPlayback = () => {
+    setRecordingState('idle');
+  };
+
+  const resetRobotPosition = () => {
+    setRobotConfig({
+      shoulderPosition: SHOULDER_POSITION,
+      upperArmLength: ROBOT_CONFIG.upperArmLength,
+      lowerArmLength: ROBOT_CONFIG.lowerArmLength,
+      shoulderAngle: ROBOT_CONFIG.initialShoulderAngle,
+      elbowAngle: ROBOT_CONFIG.initialElbowAngle
+    });
+  };
+
+  const resetCurrentMotion = () => {
+    if (currentTrajectory) {
+      // Save to undo history before resetting
+      setUndoHistory(prev => [...prev, currentTrajectory]);
+      setCurrentTrajectory(null);
+      setRecordingState('idle');
+      resetRobotPosition();
+    }
+  };
+
+  const completeCurrentMotion = () => {
+    if (!userSession || !currentTrajectory || !currentTrajectory.completed) {
+      return;
+    }
+
+    // Add to completed motions
+    setUserSession(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        completedMotions: [...prev.completedMotions, currentTrajectory]
+      };
+    });
+
+    // Clear current trajectory and reset robot to initial position
+    setCurrentTrajectory(null);
+    setUndoHistory([]);
+    setRedoHistory([]);
+    setRecordingState('idle');
+    resetRobotPosition();
+
+    // Move to next prompt or completion
+    nextPrompt();
+  };
+
+  const nextPrompt = () => {
+    if (!userSession) return;
+
+    const nextIndex = userSession.currentPromptIndex + 1;
+
+    if (nextIndex >= userSession.promptOrder.length) {
+      // All prompts completed
+      setAppState('completed');
+    } else {
+      // Move to next prompt
+      setUserSession(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          currentPromptIndex: nextIndex
+        };
+      });
+    }
+  };
+
+  const undo = () => {
+    if (undoHistory.length === 0) return;
+
+    const previous = undoHistory[undoHistory.length - 1];
+    const newHistory = undoHistory.slice(0, -1);
+
+    if (currentTrajectory) {
+      setRedoHistory(prev => [...prev, currentTrajectory]);
+    }
+
+    setCurrentTrajectory(previous);
+    setUndoHistory(newHistory);
+  };
+
+  const redo = () => {
+    if (redoHistory.length === 0) return;
+
+    const next = redoHistory[redoHistory.length - 1];
+    const newHistory = redoHistory.slice(0, -1);
+
+    if (currentTrajectory) {
+      setUndoHistory(prev => [...prev, currentTrajectory]);
+    }
+
+    setCurrentTrajectory(next);
+    setRedoHistory(newHistory);
+  };
+
+  const value: AppContextType = {
+    appState,
+    setAppState,
+    userSession,
+    initializeSession,
+    recordingState,
+    setRecordingState,
+    currentTrajectory,
+    setCurrentTrajectory,
+    robotConfig,
+    setRobotConfig,
+    targetPosition,
+    setTargetPosition,
+    startRecording,
+    stopRecording,
+    startPlayback,
+    stopPlayback,
+    resetCurrentMotion,
+    completeCurrentMotion,
+    nextPrompt,
+    undoHistory,
+    redoHistory,
+    undo,
+    redo,
+    canUndo: undoHistory.length > 0,
+    canRedo: redoHistory.length > 0
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+export function useAppContext() {
+  const context = useContext(AppContext);
+  if (context === undefined) {
+    throw new Error('useAppContext must be used within AppProvider');
+  }
+  return context;
+}
