@@ -44,18 +44,22 @@ export function usePlayback({
         // Calculate elapsed time since playback started
         const elapsedTime = currentTime - playbackStartTimeRef.current;
 
-        // Find the frame that corresponds to this time
-        let targetFrame = trajectory.frames[0];
+        // Binary search to find the frame that corresponds to this time
+        let left = 0;
+        let right = trajectory.frames.length - 1;
         let frameIndex = 0;
 
-        for (let i = 0; i < trajectory.frames.length; i++) {
-          if (trajectory.frames[i].timestamp <= elapsedTime) {
-            targetFrame = trajectory.frames[i];
-            frameIndex = i;
+        while (left <= right) {
+          const mid = Math.floor((left + right) / 2);
+          if (trajectory.frames[mid].timestamp <= elapsedTime) {
+            frameIndex = mid;
+            left = mid + 1;
           } else {
-            break;
+            right = mid - 1;
           }
         }
+
+        const targetFrame = trajectory.frames[frameIndex];
 
         // If we've reached the end, stop playback
         if (frameIndex >= trajectory.frames.length - 1) {

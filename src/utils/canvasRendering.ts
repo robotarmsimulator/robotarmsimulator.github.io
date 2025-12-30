@@ -31,12 +31,12 @@ export function drawRobotArmEnhanced(
   elbow: Vector2D,
   endEffector: Vector2D
 ) {
-  // Shadow/depth effect
+  // Lighter shadow for better performance
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-  ctx.shadowBlur = 12;
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 4;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
 
   // Upper arm segment (metallic look)
   drawRoboticArmSegment(ctx, shoulder, elbow, '#94a3b8', 16);
@@ -58,10 +58,10 @@ export function drawRobotArmEnhanced(
 
 
 export function drawTarget(ctx: CanvasRenderingContext2D, target: Vector2D) {
-  // Outer glow
+  // Lighter glow for better performance
   ctx.save();
   ctx.shadowColor = COLORS.target;
-  ctx.shadowBlur = 20;
+  ctx.shadowBlur = 10;
 
   // Target circle
   ctx.strokeStyle = COLORS.target;
@@ -74,18 +74,12 @@ export function drawTarget(ctx: CanvasRenderingContext2D, target: Vector2D) {
 
   ctx.restore();
 
-  // Inner circles for depth
+  // Single inner circle for depth (reduced from 2 circles)
   ctx.strokeStyle = COLORS.target;
   ctx.lineWidth = 2;
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.5;
   ctx.beginPath();
-  ctx.arc(target.x, target.y, TARGET_CONFIG.radius * 0.6, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.4;
-  ctx.beginPath();
-  ctx.arc(target.x, target.y, TARGET_CONFIG.radius * 0.3, 0, Math.PI * 2);
+  ctx.arc(target.x, target.y, TARGET_CONFIG.radius * 0.5, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.globalAlpha = 1.0;
@@ -186,6 +180,9 @@ function adjustBrightness(color: string, factor: number): string {
   return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
 }
 
+// Cache for gradients to avoid recreating them every frame
+const gradientCache = new Map<string, CanvasGradient>();
+
 // New robotic arm segment with mechanical details
 function drawRoboticArmSegment(
   ctx: CanvasRenderingContext2D,
@@ -201,12 +198,18 @@ function drawRoboticArmSegment(
   ctx.translate(start.x, start.y);
   ctx.rotate(angle);
 
-  // Main body with metallic gradient
-  const gradient = ctx.createLinearGradient(0, -thickness/2, 0, thickness/2);
-  gradient.addColorStop(0, adjustBrightness(color, 1.4));
-  gradient.addColorStop(0.3, color);
-  gradient.addColorStop(0.7, adjustBrightness(color, 0.8));
-  gradient.addColorStop(1, adjustBrightness(color, 0.6));
+  // Use cached gradient or create new one
+  const gradientKey = `${color}-${thickness}`;
+  let gradient = gradientCache.get(gradientKey);
+
+  if (!gradient) {
+    gradient = ctx.createLinearGradient(0, -thickness/2, 0, thickness/2);
+    gradient.addColorStop(0, adjustBrightness(color, 1.4));
+    gradient.addColorStop(0.3, color);
+    gradient.addColorStop(0.7, adjustBrightness(color, 0.8));
+    gradient.addColorStop(1, adjustBrightness(color, 0.6));
+    gradientCache.set(gradientKey, gradient);
+  }
 
   ctx.fillStyle = gradient;
   ctx.strokeStyle = '#334155';
@@ -216,28 +219,20 @@ function drawRoboticArmSegment(
   ctx.fill();
   ctx.stroke();
 
-  // Add mechanical detail panel line
+  // Simplified mechanical details - reduce number of lines drawn
   ctx.strokeStyle = adjustBrightness(color, 0.7);
   ctx.lineWidth = 1;
   ctx.setLineDash([]);
 
-  // Vertical lines at intervals
-  for (let i = 20; i < length - 10; i += 25) {
-    ctx.beginPath();
-    ctx.moveTo(i, -thickness/2 + 2);
-    ctx.lineTo(i, thickness/2 - 2);
-    ctx.stroke();
-  }
-
-  // Horizontal center line
+  // Horizontal center line only (removed vertical lines for performance)
   ctx.beginPath();
   ctx.moveTo(10, 0);
   ctx.lineTo(length - 10, 0);
   ctx.stroke();
 
-  // Add rivets/bolts
+  // Reduced rivets/bolts (only 2 instead of 4)
   ctx.fillStyle = '#475569';
-  const rivetPositions = [15, length * 0.33, length * 0.66, length - 15];
+  const rivetPositions = [length * 0.25, length * 0.75];
   for (const x of rivetPositions) {
     if (x > 0 && x < length) {
       ctx.beginPath();

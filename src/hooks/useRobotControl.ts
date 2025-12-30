@@ -53,6 +53,8 @@ export function useRobotControl({
   const setRobotConfigRef = useRef(setRobotConfig);
   const startRecordingRef = useRef(startRecording);
   const stopRecordingRef = useRef(stopRecording);
+  const lastMousePositionRef = useRef<Vector2D | null>(null);
+  const cachedIKRef = useRef<{ shoulderAngle: number; elbowAngle: number; clampedTarget: Vector2D } | null>(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -83,6 +85,8 @@ export function useRobotControl({
     if (!mousePosition || !isFollowing) {
       // Clear actual target when not following
       setActualTargetPosition(null);
+      lastMousePositionRef.current = null;
+      cachedIKRef.current = null;
       return;
     }
 
@@ -96,46 +100,75 @@ export function useRobotControl({
       return;
     }
 
-    // Try both elbow configurations and choose the one closest to current
-    // This prevents unwanted flipping when grabbing the end effector
-    const ikElbowUp = inverseKinematics(
-      SHOULDER_POSITION,
-      mousePosition,
-      ROBOT_CONFIG.upperArmLength,
-      ROBOT_CONFIG.lowerArmLength,
-      true
-    );
+    // Throttle IK calculations - only recalculate if mouse moved significantly (> 2 pixels)
+    const lastMouse = lastMousePositionRef.current;
+    const mouseMovedSignificantly = !lastMouse ||
+      Math.abs(mousePosition.x - lastMouse.x) > 2 ||
+      Math.abs(mousePosition.y - lastMouse.y) > 2;
 
-    const ikElbowDown = inverseKinematics(
-      SHOULDER_POSITION,
-      mousePosition,
-      ROBOT_CONFIG.upperArmLength,
-      ROBOT_CONFIG.lowerArmLength,
-      false
-    );
+    let ik: { shoulderAngle: number; elbowAngle: number; clampedTarget: Vector2D };
 
-    // Calculate angular distance for both solutions
-    const currentShoulder = robotConfigRef.current.shoulderAngle;
-    const currentElbow = robotConfigRef.current.elbowAngle;
+    if (mouseMovedSignificantly) {
+      // Try both elbow configurations and choose the one closest to current
+      // This prevents unwanted flipping when grabbing the end effector
+      const ikElbowUp = inverseKinematics(
+        SHOULDER_POSITION,
+        mousePosition,
+        ROBOT_CONFIG.upperArmLength,
+        ROBOT_CONFIG.lowerArmLength,
+        true
+      );
 
-    const distUp = Math.abs(ikElbowUp.shoulderAngle - currentShoulder) +
-                   Math.abs(ikElbowUp.elbowAngle - currentElbow);
-    const distDown = Math.abs(ikElbowDown.shoulderAngle - currentShoulder) +
-                     Math.abs(ikElbowDown.elbowAngle - currentElbow);
+      const ikElbowDown = inverseKinematics(
+        SHOULDER_POSITION,
+        mousePosition,
+        ROBOT_CONFIG.upperArmLength,
+        ROBOT_CONFIG.lowerArmLength,
+        false
+      );
 
-    // Choose the solution with minimal joint angle change
-    const ik = distUp < distDown ? ikElbowUp : ikElbowDown;
+      // Calculate angular distance for both solutions
+      const currentShoulder = robotConfigRef.current.shoulderAngle;
+      const currentElbow = robotConfigRef.current.elbowAngle;
+
+      const distUp = Math.abs(ikElbowUp.shoulderAngle - currentShoulder) +
+                     Math.abs(ikElbowUp.elbowAngle - currentElbow);
+      const distDown = Math.abs(ikElbowDown.shoulderAngle - currentShoulder) +
+                       Math.abs(ikElbowDown.elbowAngle - currentElbow);
+
+      // Choose the solution with minimal joint angle change
+      ik = distUp < distDown ? ikElbowUp : ikElbowDown;
+
+      // Cache the result
+      cachedIKRef.current = ik;
+      lastMousePositionRef.current = mousePosition;
+    } else if (cachedIKRef.current) {
+      // Use cached IK result if mouse hasn't moved significantly
+      ik = cachedIKRef.current;
+    } else {
+      // Fallback - shouldn't normally reach here
+      return;
+    }
 
     // Store the clamped target position for visualization
     // This represents where the end effector will actually be
     setActualTargetPosition(ik.clampedTarget);
 
-    // Update joint angles immediately (direct manipulation - no interpolation)
-    setRobotConfigRef.current((prevConfig: RobotArmConfig) => ({
-      ...prevConfig,
-      shoulderAngle: ik.shoulderAngle,
-      elbowAngle: ik.elbowAngle
-    }));
+    // Only update robot config if angles changed significantly (> 0.001 radians)
+    const currentShoulder = robotConfigRef.current.shoulderAngle;
+    const currentElbow = robotConfigRef.current.elbowAngle;
+    const anglesChangedSignificantly =
+      Math.abs(ik.shoulderAngle - currentShoulder) > 0.001 ||
+      Math.abs(ik.elbowAngle - currentElbow) > 0.001;
+
+    if (anglesChangedSignificantly) {
+      // Update joint angles immediately (direct manipulation - no interpolation)
+      setRobotConfigRef.current((prevConfig: RobotArmConfig) => ({
+        ...prevConfig,
+        shoulderAngle: ik.shoulderAngle,
+        elbowAngle: ik.elbowAngle
+      }));
+    }
 
     // Auto-start recording on first movement
     if (!hasStartedMoving && recordingState === 'idle') {
