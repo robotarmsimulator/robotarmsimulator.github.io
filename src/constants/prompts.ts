@@ -17,37 +17,37 @@ export const PROMPTS: PromptConfig[] = [
   {
     type: 'Free',
     labanText: 'Free',
-    metaphorText: 'Unrestricted, like a bird soaring through the sky'
+    metaphorText: 'Unrestricted, like floating in outer space'
   },
   {
     type: 'Sudden',
     labanText: 'Sudden',
-    metaphorText: 'Quick and sharp, like a lightning strike'
+    metaphorText: 'Running late to a high-stakes event'
   },
   {
     type: 'Sustained',
     labanText: 'Sustained',
-    metaphorText: 'Smooth and continuous, like molasses flowing'
+    metaphorText: 'Taking a leisurely walk'
   },
   {
     type: 'Strong',
     labanText: 'Strong',
-    metaphorText: 'Powerful and forceful, like pushing through a wall'
+    metaphorText: 'Moving against strong wind'
   },
   {
     type: 'Light',
     labanText: 'Light',
-    metaphorText: 'Delicate and gentle, like a feather floating'
+    metaphorText: 'A feather floating'
   },
   {
     type: 'Direct',
     labanText: 'Direct',
-    metaphorText: 'Straight and focused, like an arrow to a target'
+    metaphorText: 'Singularly focused on the target'
   },
   {
     type: 'Indirect',
     labanText: 'Indirect',
-    metaphorText: 'Wandering and meandering, like a river finding its path'
+    metaphorText: 'Ignoring the target'
   }
 ];
 

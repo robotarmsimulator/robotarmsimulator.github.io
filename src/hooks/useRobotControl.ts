@@ -63,13 +63,20 @@ export function useRobotControl({
     stopRecordingRef.current = stopRecording;
   }, [robotConfig, setIsFollowing, setRobotConfig, startRecording, stopRecording]);
 
-  // Reset states when trajectory changes (new prompt)
+  // Reset states when trajectory changes (new prompt or after redraw)
   useEffect(() => {
     if (currentTrajectory && currentTrajectory.frames.length === 0) {
       setHasStartedMoving(false);
       setActualTargetPosition(null);
     }
   }, [currentTrajectory]);
+
+  // Reset hasStartedMoving when recording stops (for redraw feature)
+  useEffect(() => {
+    if (recordingState === 'idle') {
+      setHasStartedMoving(false);
+    }
+  }, [recordingState]);
 
   // Direct manipulation: Update robot position instantly via IK every frame while dragging
   useEffect(() => {

@@ -1,0 +1,120 @@
+/**
+ * CanvasToolbar styles
+ * Desktop-only toolbar for canvas controls
+ */
+
+.canvas-toolbar {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  width: 220px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+/* Hide on mobile/tablet */
+@media (max-width: 1024px) {
+  .canvas-toolbar {
+    display: none;
+  }
+}
+
+.canvas-toolbar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.canvas-toolbar-header svg {
+  color: var(--primary);
+}
+
+.canvas-toolbar-section {
+  margin-bottom: 20px;
+}
+
+.canvas-toolbar-section:last-child {
+  margin-bottom: 0;
+}
+
+.toolbar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.toolbar-value {
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.toolbar-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.toolbar-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toolbar-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.toolbar-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toolbar-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.toolbar-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-slider:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+  background: var(--textLight);
+}
+
+.toolbar-slider:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+  background: var(--textLight);
+}

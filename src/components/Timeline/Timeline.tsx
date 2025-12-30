@@ -5,7 +5,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { TIMELINE_CONFIG, COLORS } from '../../constants/config';
 import './Timeline.css';
 
 export default function Timeline() {
@@ -13,7 +12,7 @@ export default function Timeline() {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  const { currentTrajectory, setRobotConfig, robotConfig } = useAppContext();
+  const { currentTrajectory, setRobotConfig, robotConfig, redrawFromFrame } = useAppContext();
 
   const totalFrames = currentTrajectory?.frames.length || 0;
 
@@ -25,51 +24,70 @@ export default function Timeline() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = TIMELINE_CONFIG.height;
+    // Handle high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    // ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const width = rect.width;
+    const height = rect.height;
 
     // Clear canvas
-    ctx.fillStyle = COLORS.background;
-    ctx.fillRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, height);
 
     if (totalFrames === 0) return;
 
-    // Draw timeline background
-    ctx.fillStyle = COLORS.surface;
-    ctx.fillRect(0, 20, width, 40);
+    const barHeight = 6;
+    const barY = (height - barHeight) / 2;
+    const scrubberRadius = 8;
 
-    // Draw frame ticks
-    ctx.strokeStyle = COLORS.border;
-    ctx.lineWidth = 1;
+    // Get theme colors
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
+    const surfaceColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-color').trim();
+    const textLightColor = getComputedStyle(document.documentElement).getPropertyValue('--text-light-color').trim();
 
-    for (let i = 0; i < totalFrames; i += TIMELINE_CONFIG.tickInterval) {
-      const x = (i / totalFrames) * width;
-      ctx.beginPath();
-      ctx.moveTo(x, 20);
-      ctx.lineTo(x, 60);
-      ctx.stroke();
-    }
+    // Draw background bar (theme-aware)
+    ctx.fillStyle = borderColor;
+    ctx.beginPath();
+    ctx.roundRect(0, barY, width, barHeight, 3);
+    ctx.fill();
 
-    // Draw progress bar
+    // Draw progress bar (primary color)
     const progressWidth = (currentFrame / totalFrames) * width;
-    ctx.fillStyle = COLORS.primary;
-    ctx.fillRect(0, 20, progressWidth, 40);
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    ctx.roundRect(0, barY, progressWidth, barHeight, 3);
+    ctx.fill();
 
-    // Draw scrubber
+    // Draw scrubber circle
     const scrubberX = (currentFrame / totalFrames) * width;
-    ctx.fillStyle = COLORS.secondary;
-    ctx.fillRect(
-      scrubberX - TIMELINE_CONFIG.scrubberWidth / 2,
-      10,
-      TIMELINE_CONFIG.scrubberWidth,
-      60
-    );
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    ctx.arc(scrubberX, height / 2, scrubberRadius, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Draw frame number
-    ctx.fillStyle = COLORS.text;
-    ctx.font = '12px sans-serif';
+    // Draw white inner circle for scrubber
+    ctx.fillStyle = surfaceColor;
+    ctx.beginPath();
+    ctx.arc(scrubberX, height / 2, scrubberRadius - 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw frame counter below with better rendering
+    ctx.fillStyle = textLightColor;
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`Frame ${currentFrame} / ${totalFrames}`, width / 2, height - 10);
+
+    // Enable better text rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.fillText(`Frame ${currentFrame} / ${totalFrames}`, width / 2, height - 5);
   }, [currentFrame, totalFrames, currentTrajectory]);
 
   // Update robot config when scrubbing
@@ -107,10 +125,23 @@ export default function Timeline() {
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const frameIndex = Math.floor((x / canvas.width) * totalFrames);
+    const frameIndex = Math.floor((x / rect.width) * totalFrames);
 
     setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
+
+  const handleRedrawFromHere = () => {
+    if (window.confirm('Redraw from this point? Everything after this frame will be deleted.')) {
+      redrawFromFrame(currentFrame);
+    }
+  };
+
+  // Reset to last frame when trajectory changes
+  useEffect(() => {
+    if (totalFrames > 0) {
+      setCurrentFrame(totalFrames - 1);
+    }
+  }, [totalFrames]);
 
   if (!currentTrajectory || totalFrames === 0) {
     return (
@@ -122,18 +153,28 @@ export default function Timeline() {
     );
   }
 
+  const canRedraw = currentFrame > 0 && currentFrame < totalFrames - 1;
+
   return (
     <div className="timeline-container">
       <canvas
         ref={canvasRef}
-        width={800}
-        height={TIMELINE_CONFIG.height}
+        // width={600}
+        // height={60}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         className="timeline-canvas"
       />
+      <button
+        className="redraw-button"
+        onClick={handleRedrawFromHere}
+        disabled={!canRedraw}
+        title={canRedraw ? "Delete everything after this frame and redraw from here" : "Scrub to a frame in the middle to redraw"}
+      >
+        Redraw from Here
+      </button>
     </div>
   );
 }

@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
+import { generateRandomParticipantId } from '../../utils/dataExport';
 import './SplashScreen.css';
 
 export default function SplashScreen() {
@@ -15,8 +16,11 @@ export default function SplashScreen() {
     // Randomly assign prompt set
     const promptSet = Math.random() < 0.5 ? 'laban' : 'metaphor';
 
+    // Generate random ID if user didn't provide one
+    const participantId = userId.trim() || generateRandomParticipantId();
+
     // Initialize session
-    initializeSession(userId || null, promptSet);
+    initializeSession(participantId, promptSet);
 
     // Move to tutorial
     setAppState('tutorial');

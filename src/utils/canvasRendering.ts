@@ -8,20 +8,19 @@ import { distance } from './kinematics';
 import {
   CANVAS_CONFIG,
   ROBOT_CONFIG,
-  SHOULDER_POSITION,
   COLORS,
   TARGET_CONFIG
 } from '../constants/config';
 
-export function drawWorkspace(ctx: CanvasRenderingContext2D) {
-  // Draw subtle workspace boundary
+export function drawWorkspace(ctx: CanvasRenderingContext2D, shoulderPosition: Vector2D) {
+  // Draw dashed workspace boundary (range circle centered on robot base)
   const maxReach = ROBOT_CONFIG.upperArmLength + ROBOT_CONFIG.lowerArmLength;
 
   ctx.strokeStyle = 'rgba(100, 116, 139, 0.1)';
   ctx.lineWidth = 2;
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
-  ctx.arc(SHOULDER_POSITION.x, SHOULDER_POSITION.y, maxReach, 0, Math.PI * 2);
+  ctx.arc(shoulderPosition.x, shoulderPosition.y, maxReach, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
 }
@@ -34,107 +33,29 @@ export function drawRobotArmEnhanced(
 ) {
   // Shadow/depth effect
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 4;
+  ctx.shadowOffsetY = 4;
 
-  // Upper arm segment
-  drawArmSegment(ctx, shoulder, elbow, '#5b21b6', 14);
+  // Upper arm segment (metallic look)
+  drawRoboticArmSegment(ctx, shoulder, elbow, '#94a3b8', 16);
 
-  // Lower arm segment
-  drawArmSegment(ctx, elbow, endEffector, '#7c3aed', 12);
+  // Lower arm segment (lighter metallic)
+  drawRoboticArmSegment(ctx, elbow, endEffector, '#cbd5e1', 14);
 
   ctx.restore();
 
-  // Shoulder base (fixed mount)
-  ctx.fillStyle = '#1e293b';
-  ctx.strokeStyle = '#475569';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(shoulder.x, shoulder.y, 16, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  // Shoulder base (fixed mount with actuator)
+  drawShoulderBase(ctx, shoulder);
 
-  // Inner detail
-  ctx.fillStyle = '#334155';
-  ctx.beginPath();
-  ctx.arc(shoulder.x, shoulder.y, 10, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Elbow joint
-  ctx.fillStyle = '#6b21a8';
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(elbow.x, elbow.y, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Inner detail
-  ctx.fillStyle = '#7c3aed';
-  ctx.beginPath();
-  ctx.arc(elbow.x, elbow.y, 7, 0, Math.PI * 2);
-  ctx.fill();
+  // Elbow joint (servo motor)
+  drawElbowJoint(ctx, elbow);
 
   // End effector (gripper/hand)
-  drawGripper(ctx, endEffector);
+  drawRoboticGripper(ctx, endEffector, elbow);
 }
 
-function drawArmSegment(
-  ctx: CanvasRenderingContext2D,
-  start: Vector2D,
-  end: Vector2D,
-  color: string,
-  thickness: number
-) {
-  const angle = Math.atan2(end.y - start.y, end.x - start.x);
-  const length = distance(start, end);
-
-  ctx.save();
-  ctx.translate(start.x, start.y);
-  ctx.rotate(angle);
-
-  // Create gradient for 3D effect
-  const gradient = ctx.createLinearGradient(0, -thickness/2, 0, thickness/2);
-  gradient.addColorStop(0, adjustBrightness(color, 1.3));
-  gradient.addColorStop(0.5, color);
-  gradient.addColorStop(1, adjustBrightness(color, 0.7));
-
-  // Draw segment
-  ctx.fillStyle = gradient;
-  ctx.strokeStyle = adjustBrightness(color, 0.5);
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(0, -thickness/2, length, thickness, thickness/2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-function drawGripper(ctx: CanvasRenderingContext2D, position: Vector2D) {
-  // Main gripper body
-  ctx.fillStyle = '#2563eb';
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(position.x, position.y, 14, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // Inner circle
-  ctx.fillStyle = '#3b82f6';
-  ctx.beginPath();
-  ctx.arc(position.x, position.y, 9, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Center dot
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(position.x, position.y, 3, 0, Math.PI * 2);
-  ctx.fill();
-}
 
 export function drawTarget(ctx: CanvasRenderingContext2D, target: Vector2D) {
   // Outer glow
@@ -249,7 +170,9 @@ export function drawTrajectoryPath(ctx: CanvasRenderingContext2D, frames: Motion
 }
 
 export function clearCanvas(ctx: CanvasRenderingContext2D) {
-  ctx.fillStyle = COLORS.background;
+  // Use CSS variable for background color to support dark mode
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg-color').trim() || COLORS.background;
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, CANVAS_CONFIG.width, CANVAS_CONFIG.height);
 }
 
@@ -261,4 +184,206 @@ function adjustBrightness(color: string, factor: number): string {
   const g = Math.min(255, Math.max(0, parseInt(hex.substring(2, 4), 16) * factor));
   const b = Math.min(255, Math.max(0, parseInt(hex.substring(4, 6), 16) * factor));
   return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+}
+
+// New robotic arm segment with mechanical details
+function drawRoboticArmSegment(
+  ctx: CanvasRenderingContext2D,
+  start: Vector2D,
+  end: Vector2D,
+  color: string,
+  thickness: number
+) {
+  const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  const length = distance(start, end);
+
+  ctx.save();
+  ctx.translate(start.x, start.y);
+  ctx.rotate(angle);
+
+  // Main body with metallic gradient
+  const gradient = ctx.createLinearGradient(0, -thickness/2, 0, thickness/2);
+  gradient.addColorStop(0, adjustBrightness(color, 1.4));
+  gradient.addColorStop(0.3, color);
+  gradient.addColorStop(0.7, adjustBrightness(color, 0.8));
+  gradient.addColorStop(1, adjustBrightness(color, 0.6));
+
+  ctx.fillStyle = gradient;
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(0, -thickness/2, length, thickness, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  // Add mechanical detail panel line
+  ctx.strokeStyle = adjustBrightness(color, 0.7);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+
+  // Vertical lines at intervals
+  for (let i = 20; i < length - 10; i += 25) {
+    ctx.beginPath();
+    ctx.moveTo(i, -thickness/2 + 2);
+    ctx.lineTo(i, thickness/2 - 2);
+    ctx.stroke();
+  }
+
+  // Horizontal center line
+  ctx.beginPath();
+  ctx.moveTo(10, 0);
+  ctx.lineTo(length - 10, 0);
+  ctx.stroke();
+
+  // Add rivets/bolts
+  ctx.fillStyle = '#475569';
+  const rivetPositions = [15, length * 0.33, length * 0.66, length - 15];
+  for (const x of rivetPositions) {
+    if (x > 0 && x < length) {
+      ctx.beginPath();
+      ctx.arc(x, -thickness/3, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, thickness/3, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+// Shoulder base with actuator housing
+function drawShoulderBase(ctx: CanvasRenderingContext2D, position: Vector2D) {
+  // Base plate (floor mount)
+  ctx.fillStyle = '#1e293b';
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.rect(position.x - 25, position.y - 8, 50, 16);
+  ctx.fill();
+  ctx.stroke();
+
+  // Actuator housing
+  ctx.fillStyle = '#334155';
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(position.x, position.y, 20, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Inner ring detail
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(position.x, position.y, 14, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Center hub
+  ctx.fillStyle = '#475569';
+  ctx.beginPath();
+  ctx.arc(position.x, position.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mounting bolts
+  ctx.fillStyle = '#0f172a';
+  const boltAngles = [0, Math.PI/2, Math.PI, Math.PI * 1.5];
+  boltAngles.forEach(angle => {
+    const bx = position.x + Math.cos(angle) * 16;
+    const by = position.y + Math.sin(angle) * 16;
+    ctx.beginPath();
+    ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// Elbow joint servo motor
+function drawElbowJoint(ctx: CanvasRenderingContext2D, position: Vector2D) {
+  // Servo body
+  ctx.fillStyle = '#475569';
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(position.x, position.y, 15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Servo horn (the rotating part)
+  ctx.fillStyle = '#64748b';
+  ctx.beginPath();
+  ctx.arc(position.x, position.y, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Center screw
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.arc(position.x, position.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Servo mounting points
+  ctx.fillStyle = '#334155';
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 1;
+  [0, Math.PI * 0.66, Math.PI * 1.33].forEach(angle => {
+    const px = position.x + Math.cos(angle) * 12;
+    const py = position.y + Math.sin(angle) * 12;
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+// Robotic gripper
+function drawRoboticGripper(
+  ctx: CanvasRenderingContext2D,
+  position: Vector2D,
+  elbow: Vector2D
+) {
+  const angle = Math.atan2(position.y - elbow.y, position.x - elbow.x);
+
+  ctx.save();
+  ctx.translate(position.x, position.y);
+  ctx.rotate(angle);
+
+  // Gripper base
+  ctx.fillStyle = '#3b82f6';
+  ctx.strokeStyle = '#1e40af';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Gripper fingers (basic two parallel jaws)
+  ctx.fillStyle = '#60a5fa';
+  ctx.strokeStyle = '#1e40af';
+  ctx.lineWidth = 1.5;
+
+  // Upper finger
+  ctx.beginPath();
+  ctx.roundRect(8, -8, 12, 5, 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Lower finger
+  ctx.beginPath();
+  ctx.roundRect(8, 3, 12, 5, 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Finger details (grip pads)
+  ctx.fillStyle = '#1e40af';
+  for (let i = 10; i < 18; i += 3) {
+    ctx.fillRect(i, -7, 1, 3);
+    ctx.fillRect(i, 4, 1, 3);
+  }
+
+  // Center indicator
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(0, 0, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }

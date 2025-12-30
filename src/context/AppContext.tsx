@@ -14,7 +14,7 @@ import type {
 } from '../types';
 import { getRandomizedPromptOrder } from '../constants/prompts';
 import { generateSessionId } from '../utils/dataExport';
-import { SHOULDER_POSITION, ROBOT_CONFIG } from '../constants/config';
+import { ROBOT_CONFIG, getActivePosePreset } from '../constants/config';
 
 interface AppContextType {
   // Application state
@@ -23,7 +23,7 @@ interface AppContextType {
 
   // User session
   userSession: UserSession | null;
-  initializeSession: (userId: string | null, promptSet: 'laban' | 'metaphor') => void;
+  initializeSession: (userId: string, promptSet: 'laban' | 'metaphor') => void;
 
   // Recording state
   recordingState: RecordingState;
@@ -57,6 +57,9 @@ interface AppContextType {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+
+  // Redraw from point
+  redrawFromFrame: (frameIndex: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -70,17 +73,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [undoHistory, setUndoHistory] = useState<MotionTrajectory[]>([]);
   const [redoHistory, setRedoHistory] = useState<MotionTrajectory[]>([]);
 
-  const [robotConfig, setRobotConfig] = useState<RobotArmConfig>({
-    shoulderPosition: SHOULDER_POSITION,
-    upperArmLength: ROBOT_CONFIG.upperArmLength,
-    lowerArmLength: ROBOT_CONFIG.lowerArmLength,
-    shoulderAngle: ROBOT_CONFIG.initialShoulderAngle,
-    elbowAngle: ROBOT_CONFIG.initialElbowAngle
+  const [robotConfig, setRobotConfig] = useState<RobotArmConfig>(() => {
+    const activePose = getActivePosePreset();
+    return {
+      shoulderPosition: activePose.shoulderPosition,
+      upperArmLength: ROBOT_CONFIG.upperArmLength,
+      lowerArmLength: ROBOT_CONFIG.lowerArmLength,
+      shoulderAngle: activePose.initialShoulderAngle,
+      elbowAngle: activePose.initialElbowAngle
+    };
   });
 
-  const initializeSession = (userId: string | null, promptSet: 'laban' | 'metaphor') => {
+  const initializeSession = (userId: string, promptSet: 'laban' | 'metaphor') => {
     const sessionId = generateSessionId();
     const promptOrder = getRandomizedPromptOrder();
+    const activePose = getActivePosePreset();
 
     setUserSession({
       userId,
@@ -89,8 +96,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       promptOrder,
       completedMotions: [],
       currentPromptIndex: 0,
-      startTime: Date.now()
+      startTime: Date.now(),
+      activePosePreset: activePose.name
     });
+
+    // Set initial target position from preset
+    setTargetPosition(activePose.targetPosition);
   };
 
   const startRecording = () => {
@@ -111,12 +122,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const resetRobotPosition = () => {
+    const activePose = getActivePosePreset();
     setRobotConfig({
-      shoulderPosition: SHOULDER_POSITION,
+      shoulderPosition: activePose.shoulderPosition,
       upperArmLength: ROBOT_CONFIG.upperArmLength,
       lowerArmLength: ROBOT_CONFIG.lowerArmLength,
-      shoulderAngle: ROBOT_CONFIG.initialShoulderAngle,
-      elbowAngle: ROBOT_CONFIG.initialElbowAngle
+      shoulderAngle: activePose.initialShoulderAngle,
+      elbowAngle: activePose.initialElbowAngle
     });
   };
 
@@ -203,6 +215,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRedoHistory(newHistory);
   };
 
+  const redrawFromFrame = (frameIndex: number) => {
+    if (!currentTrajectory || frameIndex < 0 || frameIndex >= currentTrajectory.frames.length) return;
+
+    // Save current trajectory to undo history
+    setUndoHistory(prev => [...prev, currentTrajectory]);
+
+    // Truncate trajectory to the selected frame
+    const truncatedTrajectory: MotionTrajectory = {
+      ...currentTrajectory,
+      frames: currentTrajectory.frames.slice(0, frameIndex + 1),
+      completed: false, // No longer completed since we're redrawing
+      totalTimeMs: currentTrajectory.frames[frameIndex].timestamp
+    };
+
+    setCurrentTrajectory(truncatedTrajectory);
+    setRecordingState('idle'); // Allow user to start recording from this point
+    setRedoHistory([]); // Clear redo history when making a new change
+  };
+
   const value: AppContextType = {
     appState,
     setAppState,
@@ -228,7 +259,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     undo,
     redo,
     canUndo: undoHistory.length > 0,
-    canRedo: redoHistory.length > 0
+    canRedo: redoHistory.length > 0,
+    redrawFromFrame
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

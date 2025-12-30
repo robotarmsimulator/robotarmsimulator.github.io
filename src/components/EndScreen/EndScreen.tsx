@@ -30,7 +30,8 @@ export default function EndScreen() {
     exportAllTrajectories(
       userSession.completedMotions,
       participantId,
-      userSession.sessionId
+      userSession.sessionId,
+      userSession.promptSet
     );
   };
 

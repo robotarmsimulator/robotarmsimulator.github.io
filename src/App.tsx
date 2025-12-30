@@ -5,15 +5,17 @@
 
 import { useEffect } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { ThemeProvider } from './context/ThemeContext';
 import SplashScreen from './components/SplashScreen/SplashScreen';
 import Tutorial from './components/Tutorial/Tutorial';
 import EndScreen from './components/EndScreen/EndScreen';
 import RobotArm from './components/RobotArm/RobotArm';
 import Controls from './components/Controls/Controls';
-import Timeline from './components/Timeline/Timeline';
 import PromptDisplay from './components/PromptDisplay/PromptDisplay';
 import ProgressIndicator from './components/ProgressIndicator/ProgressIndicator';
-import { generateRandomTarget, ROBOT_CONFIG } from './constants/config';
+import HelpButton from './components/HelpButton/HelpButton';
+import ThemeToggle from './components/ThemeToggle/ThemeToggle';
+import { getActivePosePreset } from './constants/config';
 import { getPromptText } from './constants/prompts';
 import './App.css';
 
@@ -33,20 +35,20 @@ function AppContent() {
     if (appState === 'recording' && userSession && !currentTrajectory) {
       const currentPromptType = userSession.promptOrder[userSession.currentPromptIndex];
       const promptText = getPromptText(currentPromptType, userSession.promptSet);
-      const target = generateRandomTarget();
+      const activePose = getActivePosePreset();
 
-      // Reset robot to initial position
+      // Reset robot to initial position from active preset
       setRobotConfig({
         ...robotConfig,
-        shoulderAngle: ROBOT_CONFIG.initialShoulderAngle,
-        elbowAngle: ROBOT_CONFIG.initialElbowAngle
+        shoulderAngle: activePose.initialShoulderAngle,
+        elbowAngle: activePose.initialElbowAngle
       });
 
-      setTargetPosition(target);
+      setTargetPosition(activePose.targetPosition);
       setCurrentTrajectory({
         frames: [],
         startPosition: { x: 50, y: 50 }, // Default start position
-        targetPosition: target,
+        targetPosition: activePose.targetPosition,
         promptType: currentPromptType,
         promptText,
         completed: false,
@@ -71,20 +73,35 @@ function AppContent() {
 
   // Recording state - main application interface
   return (
-    <div className="app-main">
-      <ProgressIndicator />
-      <PromptDisplay />
-      <RobotArm />
-      <Timeline />
-      <Controls />
-    </div>
+    <>
+      <div className="app-main">
+        <div className="top-bar">
+          <div className="top-bar-left">
+            <PromptDisplay />
+          </div>
+          <div className="top-bar-right">
+            <ProgressIndicator />
+            <ThemeToggle />
+            <HelpButton />
+          </div>
+        </div>
+        <RobotArm />
+        <Controls />
+      </div>
+      <footer className="app-footer">
+        Robot Arm Simulator v8.0 | Created by Damien |
+        <a href="https://github.com/dmprgm/robot-arm-sim_v8.0.0" target="_blank" rel="noopener noreferrer"> GitHub</a>
+      </footer>
+    </>
   );
 }
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <ThemeProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ThemeProvider>
   );
 }

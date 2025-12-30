@@ -12,27 +12,27 @@ export const PROMPTS: PromptConfig[] = [
   {
     type: 'Bound',
     labanText: 'Bound',
-    metaphorText: "Draw a path like the robot is part of a military regimen and can't deviate from the group."
+    metaphorText: 'Restrained, like moving through thick honey'
   },
   {
     type: 'Free',
     labanText: 'Free',
-    metaphorText: "Draw a path like the robot is floating in outer space."
+    metaphorText: 'Unrestricted, like a bird soaring through the sky'
   },
   {
     type: 'Sudden',
     labanText: 'Sudden',
-    metaphorText: 'Draw a path like the robot is running late to a high-stakes event.'
+    metaphorText: 'Quick and sharp, like a lightning strike'
   },
   {
     type: 'Sustained',
     labanText: 'Sustained',
-    metaphorText: "Draw a path like the robot is taking a leisurely walk."
+    metaphorText: 'Smooth and continuous, like molasses flowing'
   },
   {
     type: 'Strong',
     labanText: 'Strong',
-    metaphorText: 'Draw a path like the robot is moving against strong wind.'
+    metaphorText: 'Powerful and forceful, like pushing through a wall'
   },
   {
     type: 'Light',
@@ -42,12 +42,12 @@ export const PROMPTS: PromptConfig[] = [
   {
     type: 'Direct',
     labanText: 'Direct',
-    metaphorText: 'Draw a path where the robot is singularity focused on the target.'
+    metaphorText: 'Straight and focused, like an arrow to a target'
   },
   {
     type: 'Indirect',
     labanText: 'Indirect',
-    metaphorText: 'Draw a path like the robot is ignoring the target.'
+    metaphorText: 'Wandering and meandering, like a river finding its path'
   }
 ];
 

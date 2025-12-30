@@ -1,11 +1,10 @@
 /**
  * usePlayback hook
- * Manages playback of recorded motion frames
+ * Manages playback of recorded motion frames with accurate timing
  */
 
 import { useEffect, useRef } from 'react';
 import type { RobotArmConfig, MotionTrajectory, RecordingState } from '../types';
-import { RECORDING_CONFIG } from '../constants/config';
 
 interface UsePlaybackProps {
   recordingState: RecordingState;
@@ -21,8 +20,8 @@ export function usePlayback({
   setRobotConfig,
   stopPlayback
 }: UsePlaybackProps) {
-  const playbackFrameIndexRef = useRef<number>(0);
-  const playbackIntervalRef = useRef<number | undefined>(undefined);
+  const playbackStartTimeRef = useRef<number>(0);
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const currentTrajectoryRef = useRef(currentTrajectory);
   const setRobotConfigRef = useRef(setRobotConfig);
   const stopPlaybackRef = useRef(stopPlayback);
@@ -36,37 +35,58 @@ export function usePlayback({
 
   useEffect(() => {
     if (recordingState === 'playing' && currentTrajectory && currentTrajectory.frames.length > 0) {
-      playbackFrameIndexRef.current = 0; // Reset to start
+      playbackStartTimeRef.current = performance.now();
 
-      playbackIntervalRef.current = window.setInterval(() => {
+      const animate = (currentTime: number) => {
         const trajectory = currentTrajectoryRef.current;
         if (!trajectory || trajectory.frames.length === 0) return;
 
-        const nextIndex = playbackFrameIndexRef.current + 1;
+        // Calculate elapsed time since playback started
+        const elapsedTime = currentTime - playbackStartTimeRef.current;
+
+        // Find the frame that corresponds to this time
+        let targetFrame = trajectory.frames[0];
+        let frameIndex = 0;
+
+        for (let i = 0; i < trajectory.frames.length; i++) {
+          if (trajectory.frames[i].timestamp <= elapsedTime) {
+            targetFrame = trajectory.frames[i];
+            frameIndex = i;
+          } else {
+            break;
+          }
+        }
 
         // If we've reached the end, stop playback
-        if (nextIndex >= trajectory.frames.length) {
+        if (frameIndex >= trajectory.frames.length - 1) {
+          setRobotConfigRef.current((prevConfig) => ({
+            ...prevConfig,
+            shoulderAngle: trajectory.frames[trajectory.frames.length - 1].shoulderAngle,
+            elbowAngle: trajectory.frames[trajectory.frames.length - 1].elbowAngle
+          }));
           stopPlaybackRef.current();
           return;
         }
 
         // Update robot config to match this frame
-        const frame = trajectory.frames[nextIndex];
         setRobotConfigRef.current((prevConfig) => ({
           ...prevConfig,
-          shoulderAngle: frame.shoulderAngle,
-          elbowAngle: frame.elbowAngle
+          shoulderAngle: targetFrame.shoulderAngle,
+          elbowAngle: targetFrame.elbowAngle
         }));
 
-        playbackFrameIndexRef.current = nextIndex;
-      }, RECORDING_CONFIG.frameInterval);
-    } else if (playbackIntervalRef.current) {
-      clearInterval(playbackIntervalRef.current);
+        // Continue animation
+        animationFrameRef.current = requestAnimationFrame(animate);
+      };
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    } else if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
     }
 
     return () => {
-      if (playbackIntervalRef.current) {
-        clearInterval(playbackIntervalRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, [recordingState, currentTrajectory]);

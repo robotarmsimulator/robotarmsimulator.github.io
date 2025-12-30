@@ -78,16 +78,29 @@ export interface PromptConfig {
 }
 
 /**
+ * Pose preset configuration
+ * Defines robot starting position and target position
+ */
+export interface PosePreset {
+  name: string;
+  shoulderPosition: Vector2D;
+  initialShoulderAngle: number;  // radians
+  initialElbowAngle: number;     // radians
+  targetPosition: Vector2D;
+}
+
+/**
  * User session data
  */
 export interface UserSession {
-  userId: string | null;        // Optional Prolific ID
+  userId: string;               // Prolific ID or auto-generated user ID
   sessionId: string;            // Unique session identifier
   promptSet: 'laban' | 'metaphor';
   promptOrder: PromptType[];    // Randomized order
   completedMotions: MotionTrajectory[];
   currentPromptIndex: number;
   startTime: number;            // Session start timestamp
+  activePosePreset: string;     // Name of the active pose preset
 }
 
 /**

@@ -6,6 +6,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Vector2D, RobotArmConfig } from '../types';
 import { forwardKinematics, distance } from '../utils/kinematics';
+import { CANVAS_CONFIG } from '../constants/config';
 
 interface UseMouseTrackingProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -39,9 +40,14 @@ export function useMouseTracking({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
+    // Map mouse coordinates to canvas logical coordinate space
+    // Account for any CSS scaling between the display size and logical size
+    const scaleX = CANVAS_CONFIG.width / rect.width;
+    const scaleY = CANVAS_CONFIG.height / rect.height;
+
     setMousePosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     });
   }, []);
 
@@ -50,9 +56,13 @@ export function useMouseTracking({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
+    // Map mouse coordinates to canvas logical coordinate space
+    const scaleX = CANVAS_CONFIG.width / rect.width;
+    const scaleY = CANVAS_CONFIG.height / rect.height;
+
     const clickPos: Vector2D = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
 
     const { endEffectorPosition } = forwardKinematics(robotConfigRef.current);

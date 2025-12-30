@@ -38,9 +38,13 @@ export function useRecording({
   // Recording loop using requestAnimationFrame
   useEffect(() => {
     if (recordingState === 'recording') {
-      // Initialize start time on first recording
+      // Initialize start time on first recording or continuing from a point
       if (startTimeRef.current === 0) {
-        startTimeRef.current = performance.now();
+        const trajectory = currentTrajectoryRef.current;
+        const baseTimestamp = trajectory && trajectory.frames.length > 0
+          ? trajectory.frames[trajectory.frames.length - 1].timestamp
+          : 0;
+        startTimeRef.current = performance.now() - baseTimestamp;
       }
 
       // Recording loop

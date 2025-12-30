@@ -59,13 +59,15 @@ function objectArrayToCSV(data: Array<Record<string, string | number | boolean>>
 export function exportTrajectoryCSV(
   trajectory: MotionTrajectory,
   participantId: string,
-  sessionId: string
+  sessionId: string,
+  promptSet?: 'laban' | 'metaphor'
 ): void {
   const csvData = trajectoryToCSVData(trajectory, participantId, sessionId);
   const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
 
-  // Create filename with participant ID and prompt type
-  const filename = `trajectory_${participantId}_${trajectory.promptType}_${Date.now()}.csv`;
+  // Create filename with participant ID, M/L indicator, and prompt type
+  const setIndicator = promptSet === 'metaphor' ? 'M' : promptSet === 'laban' ? 'L' : '';
+  const filename = `trajectory_${participantId}_${setIndicator}_${trajectory.promptType}_${Date.now()}.csv`;
 
   downloadCSV(csvString, filename);
 }
@@ -92,7 +94,10 @@ export function exportSessionCSV(
   }));
 
   const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
-  const filename = `session_${participantId}_${sessionId}_${Date.now()}.csv`;
+
+  // Add M/L indicator to session filename
+  const setIndicator = promptSet === 'metaphor' ? 'M' : 'L';
+  const filename = `session_${participantId}_${setIndicator}_${sessionId}_${Date.now()}.csv`;
 
   downloadCSV(csvString, filename);
 }
@@ -103,10 +108,11 @@ export function exportSessionCSV(
 export function exportAllTrajectories(
   trajectories: MotionTrajectory[],
   participantId: string,
-  sessionId: string
+  sessionId: string,
+  promptSet?: 'laban' | 'metaphor'
 ): void {
   trajectories.forEach(trajectory => {
-    exportTrajectoryCSV(trajectory, participantId, sessionId);
+    exportTrajectoryCSV(trajectory, participantId, sessionId, promptSet);
   });
 }
 
@@ -219,4 +225,13 @@ export async function importTrajectoryCSV(file: File): Promise<MotionTrajectory 
  */
 export function generateSessionId(): string {
   return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * Generate random participant ID (for users who don't provide one)
+ */
+export function generateRandomParticipantId(): string {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 11);
+  return `user_${timestamp}_${randomPart}`;
 }

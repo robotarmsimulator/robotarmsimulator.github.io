@@ -23,12 +23,25 @@ export default function ProgressIndicator() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = 40;
+    // Handle high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    const size = 55;
+
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+
+    const centerX = Math.floor(size / 2) + 0.5;
+    const centerY = Math.floor(size / 2) + 0.5;
+    const radius = 22;
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, size, size);
 
     // Draw background circle
     ctx.beginPath();
@@ -48,15 +61,20 @@ export default function ProgressIndicator() {
 
     // Draw inner circle (to create donut effect)
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius - 15, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, radius - 8, 0, Math.PI * 2);
     ctx.fillStyle = 'white';
     ctx.fill();
 
-    // Draw text
+    // Draw text with better rendering
     ctx.fillStyle = COLORS.text;
-    ctx.font = 'bold 18px sans-serif';
+    ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
+    // Enable better text rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     ctx.fillText(`${completedCount}/${totalCount}`, centerX, centerY);
   }, [completedCount, progress]);
 
@@ -64,8 +82,8 @@ export default function ProgressIndicator() {
     <div className="progress-indicator">
       <canvas
         ref={canvasRef}
-        width={100}
-        height={100}
+        // width={55}
+        // height={55}
         className="progress-canvas"
       />
       <div className="progress-label">Motions Completed</div>

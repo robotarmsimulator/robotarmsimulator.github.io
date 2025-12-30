@@ -95,11 +95,19 @@ export default function RobotArm() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Handle high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = CANVAS_CONFIG.width * dpr;
+    canvas.height = CANVAS_CONFIG.height * dpr;
+
+    ctx.scale(dpr, dpr);
+
     // Clear canvas
     clearCanvas(ctx);
 
-    // Draw workspace area
-    drawWorkspace(ctx);
+    // Draw workspace area (range circle centered on robot base)
+    drawWorkspace(ctx, robotConfig.shoulderPosition);
 
     // Calculate arm positions
     const { elbowPosition, endEffectorPosition } = forwardKinematics(robotConfig);

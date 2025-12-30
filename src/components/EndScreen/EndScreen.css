@@ -9,46 +9,46 @@
 
 .end-content {
   background-color: white;
-  padding: 60px;
-  border-radius: 16px;
-  max-width: 600px;
+  padding: 40px;
+  border-radius: 12px;
+  max-width: 500px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   text-align: center;
 }
 
 .end-icon {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 20px;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 16px;
   background-color: #10b981;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
+  font-size: 36px;
   color: white;
 }
 
 .end-title {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .end-subtitle {
-  font-size: 18px;
+  font-size: 16px;
   color: #64748b;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .end-stats {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 40px;
-  padding: 30px;
+  margin-bottom: 24px;
+  padding: 20px;
   background-color: #f8fafc;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .stat-item {
@@ -56,48 +56,49 @@
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 700;
   color: #2563eb;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #64748b;
 }
 
 .end-description {
-  margin-bottom: 30px;
-  line-height: 1.6;
+  margin-bottom: 20px;
+  line-height: 1.5;
   color: #475569;
   text-align: left;
+  font-size: 14px;
 }
 
 .end-description p {
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .end-note {
   background-color: #fef3c7;
-  padding: 15px;
-  border-radius: 8px;
-  border-left: 4px solid #f59e0b;
-  font-size: 14px;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid #f59e0b;
+  font-size: 13px;
 }
 
 .download-button {
   width: 100%;
-  padding: 16px;
+  padding: 14px;
   background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .download-button:hover {
@@ -109,8 +110,8 @@
 }
 
 .end-footer {
-  padding-top: 30px;
+  padding-top: 20px;
   border-top: 2px solid #e2e8f0;
   color: #64748b;
-  font-size: 14px;
+  font-size: 13px;
 }
