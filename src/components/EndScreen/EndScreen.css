@@ -115,3 +115,81 @@
   color: #64748b;
   font-size: 13px;
 }
+
+@media (max-width: 768px) {
+  .end-screen {
+    padding: 16px;
+  }
+
+  .end-content {
+    padding: 32px 24px;
+    max-width: 100%;
+  }
+
+  .end-title {
+    font-size: 24px;
+  }
+
+  .end-subtitle {
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+
+  .end-stats {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .download-button {
+    padding: 12px;
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .end-screen {
+    padding: 12px;
+  }
+
+  .end-content {
+    padding: 24px 16px;
+  }
+
+  .end-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 28px;
+  }
+
+  .end-title {
+    font-size: 20px;
+  }
+
+  .end-subtitle {
+    font-size: 14px;
+  }
+
+  .end-stats {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .stat-item {
+    padding: 8px 0;
+  }
+
+  .download-button {
+    padding: 10px;
+    font-size: 14px;
+  }
+}

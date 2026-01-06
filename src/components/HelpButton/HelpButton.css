@@ -79,3 +79,34 @@
   color: #64748b;
   font-weight: 500;
 }
+
+@media (max-width: 768px) {
+  .help-button {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .help-menu {
+    top: 45px;
+    min-width: 180px;
+  }
+
+  .help-menu-item {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .help-button {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .help-menu {
+    top: 40px;
+    right: -10px;
+  }
+}

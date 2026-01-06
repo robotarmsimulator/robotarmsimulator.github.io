@@ -31,6 +31,14 @@ body {
   overflow: hidden;
 }
 
+@media (max-width: 768px) {
+  .app-main {
+    padding: 8px;
+    padding-bottom: 35px;
+    gap: 8px;
+  }
+}
+
 .app-footer {
   position: fixed;
   bottom: 0;
@@ -69,4 +77,17 @@ body {
   display: flex;
   gap: 12px;
   align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    flex-direction: row;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .top-bar-right {
+    flex-shrink: 0;
+    gap: 8px;
+  }
 }

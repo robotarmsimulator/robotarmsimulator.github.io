@@ -137,6 +137,42 @@ export default function RobotArm() {
     }
   }, [robotConfig, targetPosition, currentTrajectory, mousePosition, isFollowing, recordingState]);
 
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const mouseEvent = {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      currentTarget: canvas
+    } as React.MouseEvent<HTMLCanvasElement>;
+
+    handleMouseDown(mouseEvent);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const mouseEvent = {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      currentTarget: canvas
+    } as React.MouseEvent<HTMLCanvasElement>;
+
+    handleMouseMove(mouseEvent);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    handleMouseLeave();
+  };
+
   return (
     <div className="robot-arm-container">
       <canvas
@@ -146,6 +182,10 @@ export default function RobotArm() {
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         className="robot-arm-canvas"
       />
     </div>

@@ -130,6 +130,40 @@ export default function Timeline() {
     setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
 
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas || !currentTrajectory) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const frameIndex = Math.floor((x / rect.width) * totalFrames);
+
+    setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDragging) return;
+
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas || !currentTrajectory) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const frameIndex = Math.floor((x / rect.width) * totalFrames);
+
+    setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   const handleRedrawFromHere = () => {
     if (window.confirm('Redraw from this point? Everything after this frame will be deleted.')) {
       redrawFromFrame(currentFrame);
@@ -165,6 +199,10 @@ export default function Timeline() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         className="timeline-canvas"
       />
       <button

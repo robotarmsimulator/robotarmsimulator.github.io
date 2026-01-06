@@ -23,3 +23,18 @@
 .robot-arm-canvas:hover {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
+
+@media (max-width: 768px) {
+  .robot-arm-container {
+    min-height: 0;
+    flex: 1;
+  }
+
+  .robot-arm-canvas {
+    border-width: 1px;
+    border-radius: 8px;
+    touch-action: none;
+    width: 100%;
+    height: auto;
+  }
+}

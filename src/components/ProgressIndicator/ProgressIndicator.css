@@ -23,3 +23,35 @@
   color: var(--text-light-color);
   font-weight: 600;
 }
+
+@media (max-width: 768px) {
+  .progress-indicator {
+    padding: 6px;
+  }
+
+  .progress-canvas {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 6px;
+  }
+
+  .progress-label {
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-indicator {
+    padding: 4px;
+  }
+
+  .progress-canvas {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 4px;
+  }
+
+  .progress-label {
+    font-size: 7px;
+  }
+}

@@ -94,3 +94,71 @@
 .start-button:active {
   transform: scale(0.98);
 }
+
+@media (max-width: 768px) {
+  .splash-screen {
+    padding: 16px;
+  }
+
+  .splash-content {
+    padding: 32px 24px;
+    max-width: 100%;
+  }
+
+  .splash-title {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  .splash-subtitle {
+    font-size: 16px;
+    margin-bottom: 24px;
+  }
+
+  .splash-description {
+    margin-bottom: 32px;
+    font-size: 15px;
+  }
+
+  .user-id-section {
+    margin-bottom: 32px;
+  }
+
+  .start-button {
+    padding: 14px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .splash-screen {
+    padding: 12px;
+  }
+
+  .splash-content {
+    padding: 24px 16px;
+  }
+
+  .splash-title {
+    font-size: 24px;
+  }
+
+  .splash-subtitle {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .splash-description {
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+
+  .user-id-section {
+    margin-bottom: 24px;
+  }
+
+  .start-button {
+    padding: 12px;
+    font-size: 15px;
+  }
+}

@@ -25,3 +25,37 @@
   font-size: 11px;
   opacity: 0.9;
 }
+
+@media (max-width: 768px) {
+  .prompt-display {
+    padding: 10px 12px;
+  }
+
+  .prompt-label {
+    font-size: 9px;
+    margin-bottom: 4px;
+  }
+
+  .prompt-text {
+    font-size: 15px;
+    margin-bottom: 3px;
+  }
+
+  .prompt-subtitle {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .prompt-display {
+    padding: 8px 10px;
+  }
+
+  .prompt-text {
+    font-size: 13px;
+  }
+
+  .prompt-subtitle {
+    font-size: 9px;
+  }
+}

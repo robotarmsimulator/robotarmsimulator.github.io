@@ -21,3 +21,17 @@
 .theme-toggle:active {
   transform: scale(0.95);
 }
+
+@media (max-width: 768px) {
+  .theme-toggle {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-toggle {
+    width: 32px;
+    height: 32px;
+  }
+}

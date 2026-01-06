@@ -56,8 +56,41 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  /* Prevent text selection on touch devices */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  /* Improve tap responsiveness */
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent pull-to-refresh */
+  overscroll-behavior-y: contain;
+}
+
+/* Allow text selection for input fields and text content */
+input,
+textarea,
+p,
+span,
+label,
+a {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
 }
 
 button {
   font-family: inherit;
+  /* Improve touch target size on mobile */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Ensure minimum touch target size for accessibility */
+@media (max-width: 768px) {
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 44px;
+  }
 }
