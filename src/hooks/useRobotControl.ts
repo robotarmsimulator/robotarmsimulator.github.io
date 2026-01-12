@@ -82,6 +82,14 @@ export function useRobotControl({
 
   // Direct manipulation: Update robot position instantly via IK every frame while dragging
   useEffect(() => {
+    // Don't allow dragging during playback or when paused
+    if (recordingState === 'playing' || recordingState === 'paused') {
+      setActualTargetPosition(null);
+      lastMousePositionRef.current = null;
+      cachedIKRef.current = null;
+      return;
+    }
+
     if (!mousePosition || !isFollowing) {
       // Clear actual target when not following
       setActualTargetPosition(null);

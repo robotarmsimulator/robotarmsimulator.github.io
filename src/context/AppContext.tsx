@@ -118,7 +118,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const stopPlayback = () => {
-    setRecordingState('idle');
+    // Set to 'paused' instead of 'idle' to prevent dragging during paused playback
+    setRecordingState('paused');
   };
 
   const resetRobotPosition = () => {

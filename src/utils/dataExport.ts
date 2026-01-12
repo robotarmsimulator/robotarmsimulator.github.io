@@ -2,6 +2,7 @@
  * Data export utilities for generating CSV files
  */
 
+import JSZip from 'jszip';
 import type { MotionTrajectory, TrajectoryCSVData, SessionCSVData } from '../types';
 
 /**
@@ -234,4 +235,63 @@ export function generateRandomParticipantId(): string {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 11);
   return `user_${timestamp}_${randomPart}`;
+}
+
+/**
+ * Export all data as a ZIP file containing session CSV and all trajectory CSVs
+ */
+export async function exportAllDataAsZip(
+  trajectories: MotionTrajectory[],
+  participantId: string,
+  sessionId: string,
+  promptSet: 'laban' | 'metaphor'
+): Promise<void> {
+  const zip = new JSZip();
+  const setIndicator = promptSet === 'metaphor' ? 'M' : 'L';
+
+  // Add session summary CSV
+  const sessionCsvData: SessionCSVData[] = trajectories.map(traj => ({
+    participantId,
+    sessionId,
+    promptSet,
+    promptType: traj.promptType,
+    promptText: traj.promptText,
+    attemptCount: traj.attemptCount,
+    totalTimeMs: traj.totalTimeMs,
+    frameCount: traj.frames.length,
+    completed: traj.completed
+  }));
+  const sessionCsvString = objectArrayToCSV(sessionCsvData as unknown as Array<Record<string, string | number | boolean>>);
+  const sessionFilename = `session_${participantId}_${setIndicator}_${sessionId}.csv`;
+  zip.file(sessionFilename, sessionCsvString);
+
+  // Add individual trajectory CSVs
+  trajectories.forEach((trajectory) => {
+    const csvData = trajectoryToCSVData(trajectory, participantId, sessionId);
+    const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
+    const filename = `trajectory_${participantId}_${setIndicator}_${trajectory.promptType}.csv`;
+    zip.file(filename, csvString);
+  });
+
+  // Generate and download ZIP file
+  try {
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    const zipFilename = `robot_arm_data_${participantId}_${setIndicator}_${Date.now()}.zip`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', zipFilename);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Clean up the URL object
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error creating ZIP file:', error);
+    throw error;
+  }
 }

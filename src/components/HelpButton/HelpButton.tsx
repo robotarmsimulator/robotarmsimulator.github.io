@@ -19,7 +19,7 @@ export default function HelpButton() {
   };
 
   const handleReportIssue = () => {
-    window.open('https://github.com/dmprgm/robot-arm-sim_v8.0.0/issues', '_blank');
+    window.open('https://github.com/robotarmsimulator/robotarmsimulator.github.io/issues', '_blank');
     setShowMenu(false);
   };
 

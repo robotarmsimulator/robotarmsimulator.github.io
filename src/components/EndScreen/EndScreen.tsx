@@ -3,36 +3,37 @@
  * Shown after completing all 8 motions
  */
 
+import { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import {
-  exportAllTrajectories,
-  exportSessionCSV
+  exportAllDataAsZip
 } from '../../utils/dataExport';
 import './EndScreen.css';
 
 export default function EndScreen() {
   const { userSession } = useAppContext();
+  const [isDownloading, setIsDownloading] = useState(false);
 
   if (!userSession) return null;
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     const participantId = userSession.userId || 'anonymous';
 
-    // Export session summary
-    exportSessionCSV(
-      userSession.completedMotions,
-      participantId,
-      userSession.sessionId,
-      userSession.promptSet
-    );
-
-    // Export individual trajectories
-    exportAllTrajectories(
-      userSession.completedMotions,
-      participantId,
-      userSession.sessionId,
-      userSession.promptSet
-    );
+    setIsDownloading(true);
+    try {
+      // Export all data as a single ZIP file
+      await exportAllDataAsZip(
+        userSession.completedMotions,
+        participantId,
+        userSession.sessionId,
+        userSession.promptSet
+      );
+    } catch (error) {
+      console.error('Error downloading data:', error);
+      alert('There was an error downloading the data. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const totalTime = Date.now() - userSession.startTime;
@@ -83,8 +84,12 @@ export default function EndScreen() {
           </p>
         </div>
 
-        <button className="download-button" onClick={handleDownloadAll}>
-          Download All Data
+        <button
+          className="download-button"
+          onClick={handleDownloadAll}
+          disabled={isDownloading}
+        >
+          {isDownloading ? 'Preparing Download...' : 'Download All Data (ZIP)'}
         </button>
 
         <div className="end-footer">

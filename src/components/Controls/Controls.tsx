@@ -4,7 +4,7 @@
  * Recording starts automatically on first movement
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Undo2, Redo2, Check, Waves } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { gaussianSmoothTrajectory, strengthToSigma } from '../../utils/smoothing';
@@ -18,6 +18,8 @@ export default function Controls() {
   const [originalTrajectory, setOriginalTrajectory] = useState<MotionTrajectory | null>(null);
   const [hasPlayedAnimation, setHasPlayedAnimation] = useState(false);
   const [showPlaybackWarning, setShowPlaybackWarning] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const trajectoryIdRef = useRef<string | null>(null);
 
   const {
     currentTrajectory,
@@ -30,14 +32,40 @@ export default function Controls() {
     canRedo,
     recordingState,
     startPlayback,
-    stopPlayback
+    stopPlayback,
+    stopRecording
   } = useAppContext();
 
-  const handleReset = () => {
-    if (window.confirm('Are you sure you want to reset the current motion? This CAN be undone.')) {
-      resetCurrentMotion();
-      setHasPlayedAnimation(false);
+  // Clear smoothing state if trajectory changes externally (e.g., from redraw, undo, reset)
+  useEffect(() => {
+    const currentId = currentTrajectory?.promptType + '_' + currentTrajectory?.frames.length;
+
+    // If trajectory changed and we're in smoothing mode, cancel smoothing
+    if (trajectoryIdRef.current !== null && trajectoryIdRef.current !== currentId && showSmoothingSlider) {
+      setShowSmoothingSlider(false);
+      setOriginalTrajectory(null);
+      setSmoothingStrength(0);
     }
+
+    trajectoryIdRef.current = currentId;
+  }, [currentTrajectory, showSmoothingSlider]);
+
+  const handleReset = () => {
+    // Stop recording before showing modal to prevent interference
+    if (recordingState === 'recording') {
+      stopRecording();
+    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    resetCurrentMotion();
+    setHasPlayedAnimation(false);
+    setShowResetConfirm(false);
+  };
+
+  const cancelReset = () => {
+    setShowResetConfirm(false);
   };
 
   const handleComplete = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -225,6 +253,29 @@ export default function Controls() {
                 onClick={() => setShowPlaybackWarning(false)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResetConfirm && (
+        <div className="modal-overlay" onClick={cancelReset}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Reset Motion?</h3>
+            <p>Are you sure you want to reset the current motion? This action can be undone.</p>
+            <div className="modal-buttons">
+              <button
+                className="modal-button primary"
+                onClick={confirmReset}
+              >
+                Reset
+              </button>
+              <button
+                className="modal-button"
+                onClick={cancelReset}
+              >
+                Cancel
               </button>
             </div>
           </div>

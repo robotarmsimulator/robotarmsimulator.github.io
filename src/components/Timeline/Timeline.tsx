@@ -59,14 +59,14 @@ export default function Timeline() {
     ctx.fill();
 
     // Draw progress bar (primary color)
-    const progressWidth = (currentFrame / totalFrames) * width;
+    const progressWidth = totalFrames > 1 ? (currentFrame / (totalFrames - 1)) * width : width;
     ctx.fillStyle = primaryColor;
     ctx.beginPath();
     ctx.roundRect(0, barY, progressWidth, barHeight, 3);
     ctx.fill();
 
     // Draw scrubber circle
-    const scrubberX = (currentFrame / totalFrames) * width;
+    const scrubberX = totalFrames > 1 ? (currentFrame / (totalFrames - 1)) * width : width / 2;
     ctx.fillStyle = primaryColor;
     ctx.beginPath();
     ctx.arc(scrubberX, height / 2, scrubberRadius, 0, Math.PI * 2);
@@ -87,7 +87,7 @@ export default function Timeline() {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    ctx.fillText(`Frame ${currentFrame} / ${totalFrames}`, width / 2, height - 5);
+    ctx.fillText(`Frame ${currentFrame + 1} / ${totalFrames}`, width / 2, height - 5);
   }, [currentFrame, totalFrames, currentTrajectory]);
 
   // Update robot config when scrubbing
@@ -125,7 +125,8 @@ export default function Timeline() {
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const frameIndex = Math.floor((x / rect.width) * totalFrames);
+    const ratio = x / rect.width;
+    const frameIndex = Math.round(ratio * (totalFrames - 1));
 
     setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
@@ -140,7 +141,8 @@ export default function Timeline() {
 
     const rect = canvas.getBoundingClientRect();
     const x = touch.clientX - rect.left;
-    const frameIndex = Math.floor((x / rect.width) * totalFrames);
+    const ratio = x / rect.width;
+    const frameIndex = Math.round(ratio * (totalFrames - 1));
 
     setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
@@ -155,7 +157,8 @@ export default function Timeline() {
 
     const rect = canvas.getBoundingClientRect();
     const x = touch.clientX - rect.left;
-    const frameIndex = Math.floor((x / rect.width) * totalFrames);
+    const ratio = x / rect.width;
+    const frameIndex = Math.round(ratio * (totalFrames - 1));
 
     setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };

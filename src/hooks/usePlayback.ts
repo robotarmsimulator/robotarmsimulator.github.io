@@ -17,10 +17,12 @@ interface UsePlaybackProps {
 export function usePlayback({
   recordingState,
   currentTrajectory,
+  robotConfig,
   setRobotConfig,
   stopPlayback
 }: UsePlaybackProps) {
   const playbackStartTimeRef = useRef<number>(0);
+  const pausedAtTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const currentTrajectoryRef = useRef(currentTrajectory);
   const setRobotConfigRef = useRef(setRobotConfig);
@@ -33,9 +35,32 @@ export function usePlayback({
     stopPlaybackRef.current = stopPlayback;
   }, [currentTrajectory, setRobotConfig, stopPlayback]);
 
+  // Store pause time when paused
+  useEffect(() => {
+    if (recordingState === 'paused' && currentTrajectory && animationFrameRef.current) {
+      // Find current frame based on robot config
+      const currentFrame = currentTrajectory.frames.find(
+        frame => Math.abs(frame.shoulderAngle - robotConfig.shoulderAngle) < 0.01 &&
+                 Math.abs(frame.elbowAngle - robotConfig.elbowAngle) < 0.01
+      );
+      if (currentFrame) {
+        pausedAtTimeRef.current = currentFrame.timestamp;
+      }
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+  }, [recordingState, currentTrajectory, robotConfig]);
+
   useEffect(() => {
     if (recordingState === 'playing' && currentTrajectory && currentTrajectory.frames.length > 0) {
-      playbackStartTimeRef.current = performance.now();
+      // When resuming from pause, adjust start time to account for paused duration
+      const now = performance.now();
+      if (pausedAtTimeRef.current > 0) {
+        playbackStartTimeRef.current = now - pausedAtTimeRef.current;
+      } else {
+        playbackStartTimeRef.current = now;
+        pausedAtTimeRef.current = 0;
+      }
 
       const animate = (currentTime: number) => {
         const trajectory = currentTrajectoryRef.current;
