@@ -12,62 +12,63 @@ interface UsePlaybackProps {
   robotConfig: RobotArmConfig;
   setRobotConfig: (config: RobotArmConfig | ((prev: RobotArmConfig) => RobotArmConfig)) => void;
   stopPlayback: () => void;
+  playbackFrame: number;
+  setPlaybackFrame: (frame: number) => void;
 }
 
 export function usePlayback({
   recordingState,
   currentTrajectory,
-  robotConfig,
   setRobotConfig,
-  stopPlayback
+  stopPlayback,
+  playbackFrame,
+  setPlaybackFrame
 }: UsePlaybackProps) {
   const playbackStartTimeRef = useRef<number>(0);
-  const pausedAtTimeRef = useRef<number>(0);
+  const startFrameTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const currentTrajectoryRef = useRef(currentTrajectory);
   const setRobotConfigRef = useRef(setRobotConfig);
   const stopPlaybackRef = useRef(stopPlayback);
+  const setPlaybackFrameRef = useRef(setPlaybackFrame);
+  const wasPlayingRef = useRef(false);
+  const startingFrameRef = useRef(0);
+  const lastFrameIndexRef = useRef(-1);
 
-  // Keep refs in sync
-  useEffect(() => {
-    currentTrajectoryRef.current = currentTrajectory;
-    setRobotConfigRef.current = setRobotConfig;
-    stopPlaybackRef.current = stopPlayback;
-  }, [currentTrajectory, setRobotConfig, stopPlayback]);
+  // Keep refs in sync - update synchronously during render for immediate access
+  currentTrajectoryRef.current = currentTrajectory;
+  setRobotConfigRef.current = setRobotConfig;
+  stopPlaybackRef.current = stopPlayback;
+  setPlaybackFrameRef.current = setPlaybackFrame;
 
-  // Store pause time when paused
+  // Capture starting frame when transitioning TO playing state
+  // This runs before the main effect, ensuring we have the correct starting frame
+  if (recordingState === 'playing' && !wasPlayingRef.current) {
+    startingFrameRef.current = playbackFrame;
+  }
+  wasPlayingRef.current = recordingState === 'playing';
+
+  // Handle playback state changes
   useEffect(() => {
-    if (recordingState === 'paused' && currentTrajectory && animationFrameRef.current) {
-      // Find current frame based on robot config
-      const currentFrame = currentTrajectory.frames.find(
-        frame => Math.abs(frame.shoulderAngle - robotConfig.shoulderAngle) < 0.01 &&
-                 Math.abs(frame.elbowAngle - robotConfig.elbowAngle) < 0.01
-      );
-      if (currentFrame) {
-        pausedAtTimeRef.current = currentFrame.timestamp;
-      }
+    // Cancel any existing animation when state changes
+    if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = undefined;
     }
-  }, [recordingState, currentTrajectory, robotConfig]);
 
-  useEffect(() => {
     if (recordingState === 'playing' && currentTrajectory && currentTrajectory.frames.length > 0) {
-      // When resuming from pause, adjust start time to account for paused duration
-      const now = performance.now();
-      if (pausedAtTimeRef.current > 0) {
-        playbackStartTimeRef.current = now - pausedAtTimeRef.current;
-      } else {
-        playbackStartTimeRef.current = now;
-        pausedAtTimeRef.current = 0;
-      }
+      // Use the starting frame captured during render
+      const startFrame = Math.min(startingFrameRef.current, currentTrajectory.frames.length - 1);
+      startFrameTimeRef.current = currentTrajectory.frames[startFrame]?.timestamp || 0;
+      playbackStartTimeRef.current = performance.now();
+      lastFrameIndexRef.current = startFrame;
 
       const animate = (currentTime: number) => {
         const trajectory = currentTrajectoryRef.current;
         if (!trajectory || trajectory.frames.length === 0) return;
 
-        // Calculate elapsed time since playback started
-        const elapsedTime = currentTime - playbackStartTimeRef.current;
+        // Calculate elapsed time since playback started, offset by starting frame time
+        const elapsedTime = (currentTime - playbackStartTimeRef.current) + startFrameTimeRef.current;
 
         // Binary search to find the frame that corresponds to this time
         let left = 0;
@@ -84,38 +85,39 @@ export function usePlayback({
           }
         }
 
-        const targetFrame = trajectory.frames[frameIndex];
+        // Only update state if the frame actually changed
+        if (frameIndex !== lastFrameIndexRef.current) {
+          lastFrameIndexRef.current = frameIndex;
+          const targetFrame = trajectory.frames[frameIndex];
+
+          // Update the playback frame for the timeline to show
+          setPlaybackFrameRef.current(frameIndex);
+
+          // Update robot config to match this frame
+          setRobotConfigRef.current((prevConfig) => ({
+            ...prevConfig,
+            shoulderAngle: targetFrame.shoulderAngle,
+            elbowAngle: targetFrame.elbowAngle
+          }));
+        }
 
         // If we've reached the end, stop playback
         if (frameIndex >= trajectory.frames.length - 1) {
-          setRobotConfigRef.current((prevConfig) => ({
-            ...prevConfig,
-            shoulderAngle: trajectory.frames[trajectory.frames.length - 1].shoulderAngle,
-            elbowAngle: trajectory.frames[trajectory.frames.length - 1].elbowAngle
-          }));
           stopPlaybackRef.current();
           return;
         }
-
-        // Update robot config to match this frame
-        setRobotConfigRef.current((prevConfig) => ({
-          ...prevConfig,
-          shoulderAngle: targetFrame.shoulderAngle,
-          elbowAngle: targetFrame.elbowAngle
-        }));
 
         // Continue animation
         animationFrameRef.current = requestAnimationFrame(animate);
       };
 
       animationFrameRef.current = requestAnimationFrame(animate);
-    } else if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
     }
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
       }
     };
   }, [recordingState, currentTrajectory]);

@@ -41,10 +41,14 @@ interface AppContextType {
   targetPosition: Vector2D | null;
   setTargetPosition: (position: Vector2D) => void;
 
+  // Playback position (frame index to start from, or current frame during playback)
+  playbackFrame: number;
+  setPlaybackFrame: (frame: number) => void;
+
   // Actions
   startRecording: () => void;
   stopRecording: () => void;
-  startPlayback: () => void;
+  startPlayback: (fromFrame?: number) => void;
   stopPlayback: () => void;
   resetCurrentMotion: () => void;
   completeCurrentMotion: () => void;
@@ -72,6 +76,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [targetPosition, setTargetPosition] = useState<Vector2D | null>(null);
   const [undoHistory, setUndoHistory] = useState<MotionTrajectory[]>([]);
   const [redoHistory, setRedoHistory] = useState<MotionTrajectory[]>([]);
+  const [playbackFrame, setPlaybackFrame] = useState(0);
 
   const [robotConfig, setRobotConfig] = useState<RobotArmConfig>(() => {
     const activePose = getActivePosePreset();
@@ -113,7 +118,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecordingState('idle');
   };
 
-  const startPlayback = () => {
+  const startPlayback = (fromFrame?: number) => {
+    if (fromFrame !== undefined) {
+      setPlaybackFrame(fromFrame);
+    }
     setRecordingState('playing');
   };
 
@@ -252,6 +260,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     stopRecording,
     startPlayback,
     stopPlayback,
+    playbackFrame,
+    setPlaybackFrame,
     resetCurrentMotion,
     completeCurrentMotion,
     nextPrompt,

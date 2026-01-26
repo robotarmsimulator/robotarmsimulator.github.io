@@ -7,12 +7,26 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import './Timeline.css';
 
+// Track if user has seen the redraw hint (persists across component remounts within session)
+let hasShownRedrawHint = false;
+
 export default function Timeline() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [currentFrame, setCurrentFrame] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [showRedrawConfirm, setShowRedrawConfirm] = useState(false);
 
-  const { currentTrajectory, setRobotConfig, robotConfig, redrawFromFrame } = useAppContext();
+  const {
+    currentTrajectory,
+    setRobotConfig,
+    robotConfig,
+    redrawFromFrame,
+    playbackFrame,
+    setPlaybackFrame,
+    recordingState
+  } = useAppContext();
+
+  // Use playbackFrame from context as the current frame
+  const currentFrame = playbackFrame;
 
   const totalFrames = currentTrajectory?.frames.length || 0;
 
@@ -90,9 +104,11 @@ export default function Timeline() {
     ctx.fillText(`Frame ${currentFrame + 1} / ${totalFrames}`, width / 2, height - 5);
   }, [currentFrame, totalFrames, currentTrajectory]);
 
-  // Update robot config when scrubbing
+  // Update robot config when scrubbing (only when not playing - playback handles its own updates)
   useEffect(() => {
     if (!currentTrajectory || totalFrames === 0) return;
+    // Don't update during playback - usePlayback handles that
+    if (recordingState === 'playing') return;
 
     const frame = currentTrajectory.frames[currentFrame];
     if (frame) {
@@ -102,7 +118,7 @@ export default function Timeline() {
         elbowAngle: frame.elbowAngle
       });
     }
-  }, [currentFrame]);
+  }, [currentFrame, recordingState]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
@@ -122,18 +138,23 @@ export default function Timeline() {
   const handleScrub = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || !currentTrajectory) return;
+    // Don't allow scrubbing during playback
+    if (recordingState === 'playing') return;
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const ratio = x / rect.width;
     const frameIndex = Math.round(ratio * (totalFrames - 1));
 
-    setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
+    setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
 
   // Touch event handlers for mobile
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    // Don't allow scrubbing during playback
+    if (recordingState === 'playing') return;
+
     setIsDragging(true);
     const touch = e.touches[0];
     const canvas = canvasRef.current;
@@ -144,12 +165,14 @@ export default function Timeline() {
     const ratio = x / rect.width;
     const frameIndex = Math.round(ratio * (totalFrames - 1));
 
-    setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
+    setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     if (!isDragging) return;
+    // Don't allow scrubbing during playback
+    if (recordingState === 'playing') return;
 
     const touch = e.touches[0];
     const canvas = canvasRef.current;
@@ -160,7 +183,7 @@ export default function Timeline() {
     const ratio = x / rect.width;
     const frameIndex = Math.round(ratio * (totalFrames - 1));
 
-    setCurrentFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
+    setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
   };
 
   const handleTouchEnd = () => {
@@ -168,15 +191,29 @@ export default function Timeline() {
   };
 
   const handleRedrawFromHere = () => {
-    if (window.confirm('Redraw from this point? Everything after this frame will be deleted.')) {
+    // Show confirmation modal only the first time
+    if (!hasShownRedrawHint) {
+      setShowRedrawConfirm(true);
+    } else {
+      // After first time, just do the redraw directly
       redrawFromFrame(currentFrame);
     }
+  };
+
+  const confirmRedraw = () => {
+    hasShownRedrawHint = true;
+    setShowRedrawConfirm(false);
+    redrawFromFrame(currentFrame);
+  };
+
+  const cancelRedraw = () => {
+    setShowRedrawConfirm(false);
   };
 
   // Reset to last frame when trajectory changes
   useEffect(() => {
     if (totalFrames > 0) {
-      setCurrentFrame(totalFrames - 1);
+      setPlaybackFrame(totalFrames - 1);
     }
   }, [totalFrames]);
 
@@ -216,6 +253,29 @@ export default function Timeline() {
       >
         Redraw from Here
       </button>
+
+      {showRedrawConfirm && (
+        <div className="modal-overlay" onClick={cancelRedraw}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Redraw from Here?</h3>
+            <p>Everything after this frame will be deleted. You can then continue drawing from this point.</p>
+            <div className="modal-buttons">
+              <button
+                className="modal-button primary"
+                onClick={confirmRedraw}
+              >
+                Redraw
+              </button>
+              <button
+                className="modal-button"
+                onClick={cancelRedraw}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

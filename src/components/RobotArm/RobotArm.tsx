@@ -35,7 +35,9 @@ export default function RobotArm() {
     setCurrentTrajectory,
     startRecording,
     stopRecording,
-    stopPlayback
+    stopPlayback,
+    playbackFrame,
+    setPlaybackFrame
   } = useAppContext();
 
   // Mouse tracking and event handlers
@@ -76,7 +78,9 @@ export default function RobotArm() {
     currentTrajectory,
     robotConfig,
     setRobotConfig,
-    stopPlayback
+    stopPlayback,
+    playbackFrame,
+    setPlaybackFrame
   });
 
   // Target detection

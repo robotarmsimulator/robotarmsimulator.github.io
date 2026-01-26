@@ -3,8 +3,8 @@
  * Provides functions to smooth recorded motion trajectories
  */
 
-import type { MotionTrajectory, MotionFrame, RobotArmConfig } from '../types';
-import { forwardKinematics } from './kinematics';
+import type { MotionTrajectory, MotionFrame, RobotArmConfig, Vector2D } from '../types';
+import { forwardKinematics, inverseKinematics } from './kinematics';
 import { SHOULDER_POSITION, ROBOT_CONFIG } from '../constants/config';
 
 /**
@@ -58,8 +58,9 @@ export function smoothTrajectory(
 }
 
 /**
- * Apply Gaussian smoothing to trajectory
- * Provides a weighted average with more weight to nearby frames
+ * Apply Gaussian smoothing to trajectory using end effector positions
+ * This approach preserves path length better than angle-based smoothing
+ * by smoothing positions and then using inverse kinematics
  */
 export function gaussianSmoothTrajectory(
   trajectory: MotionTrajectory,
@@ -71,42 +72,59 @@ export function gaussianSmoothTrajectory(
 
   const windowSize = Math.ceil(sigma * 3) * 2 + 1; // 3 sigma rule
 
-  const smoothedFrames: MotionFrame[] = trajectory.frames.map((frame, index) => {
+  // First pass: smooth the end effector positions
+  const smoothedPositions: Vector2D[] = trajectory.frames.map((_, index) => {
     const halfWindow = Math.floor(windowSize / 2);
     const startIdx = Math.max(0, index - halfWindow);
     const endIdx = Math.min(trajectory.frames.length - 1, index + halfWindow);
 
-    let sumShoulderAngle = 0;
-    let sumElbowAngle = 0;
+    let sumX = 0;
+    let sumY = 0;
     let weightSum = 0;
 
     for (let i = startIdx; i <= endIdx; i++) {
-      const distance = Math.abs(i - index);
-      const weight = Math.exp(-(distance * distance) / (2 * sigma * sigma));
+      const dist = Math.abs(i - index);
+      const weight = Math.exp(-(dist * dist) / (2 * sigma * sigma));
 
-      sumShoulderAngle += trajectory.frames[i].shoulderAngle * weight;
-      sumElbowAngle += trajectory.frames[i].elbowAngle * weight;
+      sumX += trajectory.frames[i].endEffectorPosition.x * weight;
+      sumY += trajectory.frames[i].endEffectorPosition.y * weight;
       weightSum += weight;
     }
 
-    const smoothedShoulderAngle = sumShoulderAngle / weightSum;
-    const smoothedElbowAngle = sumElbowAngle / weightSum;
+    return {
+      x: sumX / weightSum,
+      y: sumY / weightSum
+    };
+  });
 
-    // Recalculate positions based on smoothed angles
+  // Second pass: use inverse kinematics to find angles for smoothed positions
+  const smoothedFrames: MotionFrame[] = trajectory.frames.map((frame, index) => {
+    const targetPos = smoothedPositions[index];
+
+    // Use inverse kinematics to get angles for the smoothed position
+    const { shoulderAngle, elbowAngle } = inverseKinematics(
+      SHOULDER_POSITION,
+      targetPos,
+      ROBOT_CONFIG.upperArmLength,
+      ROBOT_CONFIG.lowerArmLength,
+      true // elbowUp - preserve original configuration
+    );
+
+    // Calculate actual positions from the IK solution
     const config: RobotArmConfig = {
       shoulderPosition: SHOULDER_POSITION,
       upperArmLength: ROBOT_CONFIG.upperArmLength,
       lowerArmLength: ROBOT_CONFIG.lowerArmLength,
-      shoulderAngle: smoothedShoulderAngle,
-      elbowAngle: smoothedElbowAngle
+      shoulderAngle,
+      elbowAngle
     };
 
     const { elbowPosition, endEffectorPosition } = forwardKinematics(config);
 
     return {
       ...frame,
-      shoulderAngle: smoothedShoulderAngle,
-      elbowAngle: smoothedElbowAngle,
+      shoulderAngle,
+      elbowAngle,
       endEffectorPosition,
       elbowPosition
     };

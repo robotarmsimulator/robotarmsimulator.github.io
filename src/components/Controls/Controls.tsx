@@ -33,7 +33,8 @@ export default function Controls() {
     recordingState,
     startPlayback,
     stopPlayback,
-    stopRecording
+    stopRecording,
+    playbackFrame
   } = useAppContext();
 
   // Clear smoothing state if trajectory changes externally (e.g., from redraw, undo, reset)
@@ -92,7 +93,13 @@ export default function Controls() {
     if (recordingState === 'playing') {
       stopPlayback();
     } else {
-      startPlayback();
+      // If we're at or near the end, restart from the beginning
+      const totalFrames = currentTrajectory?.frames.length || 0;
+      if (totalFrames > 0 && playbackFrame >= totalFrames - 1) {
+        startPlayback(0); // Start from frame 0
+      } else {
+        startPlayback(); // Start from current frame
+      }
       setHasPlayedAnimation(true);
     }
   };
