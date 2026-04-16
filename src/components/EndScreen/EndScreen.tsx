@@ -13,6 +13,7 @@ import './EndScreen.css';
 export default function EndScreen() {
   const { userSession } = useAppContext();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   if (!userSession) return null;
 
@@ -28,6 +29,7 @@ export default function EndScreen() {
         userSession.sessionId,
         userSession.promptSet
       );
+      setDownloaded(true);
     } catch (error) {
       console.error('Error downloading data:', error);
       alert('There was an error downloading the data. Please try again.');
@@ -73,24 +75,33 @@ export default function EndScreen() {
             Your data has been recorded successfully. Please download your data files
             using the button below.
           </p>
-          {userSession.userId && (
+          {/* {userSession.userId && (
             <p>
               <strong>Participant ID:</strong> {userSession.userId}
             </p>
-          )}
-          <p className="end-note">
+          )} */}
+          {/* <p className="end-note">
             If you are a Prolific study participant, please follow the instructions
             provided to submit your completion code.
-          </p>
+          </p> */}
         </div>
 
         <button
           className="download-button"
           onClick={handleDownloadAll}
-          disabled={isDownloading}
+          disabled={isDownloading || downloaded}
         >
-          {isDownloading ? 'Preparing Download...' : 'Download All Data (ZIP)'}
+          {isDownloading ? 'Preparing Download...' : downloaded ? 'Data Downloaded' : 'Download All Data (ZIP)'}
         </button>
+
+        {downloaded && (
+          <div className="email-reminder">
+            <p>
+              <strong>Next:</strong> Please email the downloaded ZIP file to
+              the email address provided by your instructor.
+            </p>
+          </div>
+        )}
 
         <div className="end-footer">
           <p>

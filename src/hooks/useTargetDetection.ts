@@ -28,9 +28,11 @@ export function useTargetDetection({
 
     if (isInTargetZone(endEffectorPosition, targetPosition, TARGET_CONFIG.radius)) {
       if (!currentTrajectory.completed) {
+        const lastFrame = currentTrajectory.frames[currentTrajectory.frames.length - 1];
         setCurrentTrajectory({
           ...currentTrajectory,
-          completed: true
+          completed: true,
+          totalTimeMs: lastFrame ? lastFrame.timestamp : 0
         });
       }
     }

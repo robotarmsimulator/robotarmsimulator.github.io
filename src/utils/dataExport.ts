@@ -35,15 +35,12 @@ function trajectoryToCSVData(
 function objectArrayToCSV(data: Array<Record<string, string | number | boolean>>): string {
   if (data.length === 0) return '';
 
-  // Get headers from first object
   const headers = Object.keys(data[0]);
   const headerRow = headers.join(',');
 
-  // Convert each object to a row
   const rows = data.map(obj =>
     headers.map(header => {
       const value = obj[header];
-      // Escape values that contain commas or quotes
       if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
         return `"${value.replace(/"/g, '""')}"`;
       }
@@ -55,34 +52,56 @@ function objectArrayToCSV(data: Array<Record<string, string | number | boolean>>
 }
 
 /**
- * Export trajectory data as CSV file
+ * Normalize a participant name into a display name and a safe filename segment
  */
-export function exportTrajectoryCSV(
-  trajectory: MotionTrajectory,
-  participantId: string,
-  sessionId: string,
-  promptSet?: 'laban' | 'metaphor'
-): void {
-  const csvData = trajectoryToCSVData(trajectory, participantId, sessionId);
-  const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
+type NameToFileOpts = {
+  replaceApostropheForFile?: string;
+  removeSpaces?: boolean;
+};
 
-  // Create filename with participant ID, M/L indicator, and prompt type
-  const setIndicator = promptSet === 'metaphor' ? 'M' : promptSet === 'laban' ? 'L' : '';
-  const filename = `trajectory_${participantId}_${setIndicator}_${trajectory.promptType}_${Date.now()}.csv`;
+function nameToSafeFilename(input: string, opts: NameToFileOpts = {}): { displayName: string; filename: string } {
+  if (!input) return { displayName: 'Anonymous', filename: 'anonymous' };
 
-  downloadCSV(csvString, filename);
+  const {
+    replaceApostropheForFile = '_',
+    removeSpaces = true,
+  } = opts;
+
+  let s = input.trim().replace(/\s+/g, ' ');
+  s = s.replace(/[^A-Za-z0-9À-ÖØ-öø-ÿ' \-]/g, '');
+
+  s = s.split(' ').map(word =>
+    word.split(/(-|')/).map(part =>
+      (part === '-' || part === "'") ? part :
+      part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+    ).join('')
+  ).join(removeSpaces ? '' : ' ');
+
+  let filename = s;
+  filename = filename.replace(/\s+/g, removeSpaces ? '' : '_');
+  filename = filename.replace(/'/g, replaceApostropheForFile);
+  filename = filename.replace(/[^A-Za-z0-9\-\_\.]/g, '');
+  const MAX = 200;
+  if (filename.length > MAX) filename = filename.slice(0, MAX);
+
+  return { displayName: s, filename };
 }
 
 /**
- * Export session summary data as CSV file
+ * Export all data as a ZIP file containing session CSV and all trajectory CSVs
  */
-export function exportSessionCSV(
+export async function exportAllDataAsZip(
   trajectories: MotionTrajectory[],
   participantId: string,
   sessionId: string,
   promptSet: 'laban' | 'metaphor'
-): void {
-  const csvData: SessionCSVData[] = trajectories.map(traj => ({
+): Promise<void> {
+  const zip = new JSZip();
+  const { filename: safeId } = nameToSafeFilename(participantId);
+  const setIndicator = promptSet === 'metaphor' ? 'M' : 'L';
+
+  // Add session summary CSV
+  const sessionCsvData: SessionCSVData[] = trajectories.map(traj => ({
     participantId,
     sessionId,
     promptSet,
@@ -93,47 +112,62 @@ export function exportSessionCSV(
     frameCount: traj.frames.length,
     completed: traj.completed
   }));
+  const sessionCsvString = objectArrayToCSV(sessionCsvData as unknown as Array<Record<string, string | number | boolean>>);
+  zip.file(`metadata_${safeId}_${setIndicator}_${sessionId}.csv`, sessionCsvString);
 
-  const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
-
-  // Add M/L indicator to session filename
-  const setIndicator = promptSet === 'metaphor' ? 'M' : 'L';
-  const filename = `session_${participantId}_${setIndicator}_${sessionId}_${Date.now()}.csv`;
-
-  downloadCSV(csvString, filename);
-}
-
-/**
- * Export all trajectories as individual CSV files
- */
-export function exportAllTrajectories(
-  trajectories: MotionTrajectory[],
-  participantId: string,
-  sessionId: string,
-  promptSet?: 'laban' | 'metaphor'
-): void {
-  trajectories.forEach(trajectory => {
-    exportTrajectoryCSV(trajectory, participantId, sessionId, promptSet);
+  // Add individual trajectory CSVs
+  trajectories.forEach((trajectory) => {
+    const csvData = trajectoryToCSVData(trajectory, participantId, sessionId);
+    const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
+    zip.file(`trajectory_${safeId}_${setIndicator}_${trajectory.promptType}.csv`, csvString);
   });
-}
 
-/**
- * Download CSV string as a file
- */
-function downloadCSV(csvString: string, filename: string): void {
-  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+  // Generate ZIP and upload to Box via Cloudflare Worker
+  const zipFilename = `UCLAD182${safeId}.zip`;
+  let blob: Blob;
+
+  try {
+    blob = await zip.generateAsync({ type: 'blob' });
+  } catch (error) {
+    console.error('Error creating ZIP file:', error);
+    throw error;
+  }
+
+  const workerUrl = import.meta.env.VITE_WORKER_URL as string | undefined;
+
+  if (workerUrl) {
+    // Convert blob to base64 for JSON transport
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const zipBase64 = btoa(binary);
+
+    try {
+      const response = await fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zipBase64, filename: zipFilename }),
+      });
+
+      const result = await response.json() as { ok: boolean; error?: string };
+      if (!result.ok) throw new Error(result.error ?? 'Upload failed');
+      return; // Success — no download needed
+    } catch (uploadError) {
+      // Worker upload failed — fall back to local download so data is not lost
+      console.error('Worker upload failed, falling back to download:', uploadError);
+    }
+  }
+
+  // Fallback: trigger a local download (also used when VITE_WORKER_URL is not set)
   const link = document.createElement('a');
-
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);
-  link.setAttribute('download', filename);
+  link.setAttribute('download', zipFilename);
   link.style.visibility = 'hidden';
-
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-
-  // Clean up the URL object
   URL.revokeObjectURL(url);
 }
 
@@ -146,44 +180,25 @@ export async function importTrajectoryCSV(file: File): Promise<MotionTrajectory 
 
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      if (!text) {
-        resolve(null);
-        return;
-      }
+      if (!text) { resolve(null); return; }
 
       try {
         const lines = text.split('\n');
-        if (lines.length < 2) {
-          resolve(null);
-          return;
-        }
+        if (lines.length < 2) { resolve(null); return; }
 
-        // Parse header
         const headers = lines[0].split(',');
-
-        // Parse data rows
         const frames = lines.slice(1)
           .filter(line => line.trim())
           .map(line => {
             const values = line.split(',');
             const row: Record<string, string> = {};
-            headers.forEach((header, i) => {
-              row[header] = values[i];
-            });
+            headers.forEach((header, i) => { row[header] = values[i]; });
             return row;
           });
 
-        if (frames.length === 0) {
-          resolve(null);
-          return;
-        }
+        if (frames.length === 0) { resolve(null); return; }
 
-        // Extract trajectory metadata from first frame
         const firstFrame = frames[0];
-        const promptType = firstFrame.promptType as any;
-        const promptText = firstFrame.promptText;
-
-        // Convert to motion frames
         const motionFrames = frames.map(frame => ({
           timestamp: parseFloat(frame.timestamp),
           shoulderAngle: parseFloat(frame.shoulderAngle),
@@ -198,18 +213,16 @@ export async function importTrajectoryCSV(file: File): Promise<MotionTrajectory 
           }
         }));
 
-        const trajectory: MotionTrajectory = {
+        resolve({
           frames: motionFrames,
           startPosition: motionFrames[0].endEffectorPosition,
           targetPosition: motionFrames[motionFrames.length - 1].endEffectorPosition,
-          promptType,
-          promptText,
+          promptType: firstFrame.promptType as any,
+          promptText: firstFrame.promptText,
           completed: true,
           attemptCount: 1,
           totalTimeMs: motionFrames[motionFrames.length - 1].timestamp
-        };
-
-        resolve(trajectory);
+        });
       } catch (error) {
         console.error('Error parsing CSV:', error);
         resolve(null);
@@ -229,69 +242,10 @@ export function generateSessionId(): string {
 }
 
 /**
- * Generate random participant ID (for users who don't provide one)
+ * Generate random participant ID for users who don't provide one
  */
 export function generateRandomParticipantId(): string {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 11);
   return `user_${timestamp}_${randomPart}`;
-}
-
-/**
- * Export all data as a ZIP file containing session CSV and all trajectory CSVs
- */
-export async function exportAllDataAsZip(
-  trajectories: MotionTrajectory[],
-  participantId: string,
-  sessionId: string,
-  promptSet: 'laban' | 'metaphor'
-): Promise<void> {
-  const zip = new JSZip();
-  const setIndicator = promptSet === 'metaphor' ? 'M' : 'L';
-
-  // Add session summary CSV
-  const sessionCsvData: SessionCSVData[] = trajectories.map(traj => ({
-    participantId,
-    sessionId,
-    promptSet,
-    promptType: traj.promptType,
-    promptText: traj.promptText,
-    attemptCount: traj.attemptCount,
-    totalTimeMs: traj.totalTimeMs,
-    frameCount: traj.frames.length,
-    completed: traj.completed
-  }));
-  const sessionCsvString = objectArrayToCSV(sessionCsvData as unknown as Array<Record<string, string | number | boolean>>);
-  const sessionFilename = `session_${participantId}_${setIndicator}_${sessionId}.csv`;
-  zip.file(sessionFilename, sessionCsvString);
-
-  // Add individual trajectory CSVs
-  trajectories.forEach((trajectory) => {
-    const csvData = trajectoryToCSVData(trajectory, participantId, sessionId);
-    const csvString = objectArrayToCSV(csvData as unknown as Array<Record<string, string | number | boolean>>);
-    const filename = `trajectory_${participantId}_${setIndicator}_${trajectory.promptType}.csv`;
-    zip.file(filename, csvString);
-  });
-
-  // Generate and download ZIP file
-  try {
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-
-    const zipFilename = `robot_arm_data_${participantId}_${setIndicator}_${Date.now()}.zip`;
-    link.setAttribute('href', url);
-    link.setAttribute('download', zipFilename);
-    link.style.visibility = 'hidden';
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Clean up the URL object
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Error creating ZIP file:', error);
-    throw error;
-  }
 }

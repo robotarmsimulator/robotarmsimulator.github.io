@@ -101,12 +101,28 @@
   margin-bottom: 20px;
 }
 
-.download-button:hover {
+.download-button:hover:not(:disabled) {
   background-color: #1d4ed8;
+}
+
+.download-button:disabled {
+  background-color: #94a3b8;
+  cursor: default;
 }
 
 .download-button:active {
   transform: scale(0.98);
+}
+
+.email-reminder {
+  background-color: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #166534;
+  text-align: left;
 }
 
 .end-footer {

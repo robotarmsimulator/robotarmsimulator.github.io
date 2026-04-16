@@ -48,19 +48,22 @@ export default function SplashScreen() {
 
         <div className="user-id-section">
           <label htmlFor="userId" className="user-id-label">
-            Participant ID (optional)
+            {/* Participant ID (optional) (normal version) */}
+            Student Name
           </label>
           <input
             type="text"
             id="userId"
             className="user-id-input"
-            placeholder="Enter your Prolific ID or leave blank"
+            // placeholder="Enter your Prolific ID or leave blank" normal version
+            placeholder="Example: JaneDoe" // K class study version
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
           />
           <p className="user-id-hint">
-            If you are participating through Prolific, please enter your Prolific ID.
-            Otherwise, you can leave this blank.
+            {/* If you are participating through Prolific, please enter your Prolific ID.
+            Otherwise, you can leave this blank. */}
+            Enter your first and last name in this format. It should match the name you use in class.
           </p>
         </div>
 
