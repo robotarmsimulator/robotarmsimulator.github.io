@@ -7,13 +7,13 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #3b82f6;
-  color: white;
+  background-color: var(--primary-color);
+  color: var(--primary-bg-text);
   border: none;
   font-size: 20px;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 8px var(--common-shadow);
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -21,8 +21,8 @@
 }
 
 .help-button:hover {
-  background-color: #2563eb;
-  box-shadow: 0 6px 12px rgba(59, 130, 246, 0.4);
+  background-color: var(--primary-hover);
+  box-shadow: 0 6px 12px var(--common-shadow);
   transform: scale(1.05);
 }
 
@@ -34,9 +34,8 @@
   position: absolute;
   top: 50px;
   right: 0;
-  background-color: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
+  background-color: var(--surface-color);
+  border: 2px solid var(--border-color);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   min-width: 200px;
   overflow: hidden;
@@ -58,9 +57,10 @@
   display: block;
   width: 100%;
   padding: 12px 16px;
-  background-color: white;
+  background-color: var(--surface-color);
+  color: var(--text-color);
   border: none;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   text-align: left;
   font-size: 14px;
   cursor: pointer;
@@ -72,11 +72,11 @@
 }
 
 .help-menu-item:hover {
-  background-color: #f1f5f9;
+  background-color: var(--secondary-hover);
 }
 
 .help-menu-item.close {
-  color: #64748b;
+  color: var(--text-light-hover);
   font-weight: 500;
 }
 

@@ -1,9 +1,3 @@
-/**
- * useRecording hook
- * Manages recording state and frame capture
- * Uses requestAnimationFrame for optimal recording at display refresh rate
- */
-
 import { useEffect, useRef } from 'react';
 import type { RobotArmConfig, MotionFrame, MotionTrajectory, RecordingState } from '../types';
 import { forwardKinematics } from '../utils/kinematics';
@@ -15,99 +9,131 @@ interface UseRecordingProps {
   setCurrentTrajectory: (trajectory: MotionTrajectory) => void;
 }
 
+const RECORDING_FPS = 60; // attempted changing to 60 from 30
+const FRAME_INTERVAL = 1000 / RECORDING_FPS;
+
 export function useRecording({
   recordingState,
   robotConfig,
   currentTrajectory,
   setCurrentTrajectory
 }: UseRecordingProps) {
-  const startTimeRef = useRef<number>(0);
-  const lastRecordedConfigRef = useRef<{ shoulderAngle: number; elbowAngle: number } | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
+
+  // Exposed so callers can read live frames during recording without triggering re-renders.
+  // Off-React frame buffer. Mutations here never trigger re-renders.
+  // The rAF loop reads and writes only refs, so there are no stale closures
+  // and no O(n) array copies per frame. React state is updated once on stop.
+  const frameBufferRef = useRef<MotionFrame[]>([]);
+  const baseTrajectoryRef = useRef<MotionTrajectory | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const lastFrameTimeRef = useRef<number>(0);
+  const lastAngleRef = useRef<{ shoulderAngle: number; elbowAngle: number } | null>(null);
+
+  // Stable refs for props consumed inside rAF — avoids stale closures
   const robotConfigRef = useRef(robotConfig);
   const currentTrajectoryRef = useRef(currentTrajectory);
   const setCurrentTrajectoryRef = useRef(setCurrentTrajectory);
 
-  // Keep refs in sync
-  useEffect(() => {
-    robotConfigRef.current = robotConfig;
-    currentTrajectoryRef.current = currentTrajectory;
-    setCurrentTrajectoryRef.current = setCurrentTrajectory;
-  }, [robotConfig, currentTrajectory, setCurrentTrajectory]);
+  // These must be defined before the recording effect so they run first,
+  // ensuring currentTrajectoryRef is up-to-date when the flush check runs.
+  useEffect(() => { robotConfigRef.current = robotConfig; }, [robotConfig]);
+  useEffect(() => { currentTrajectoryRef.current = currentTrajectory; }, [currentTrajectory]);
+  useEffect(() => { setCurrentTrajectoryRef.current = setCurrentTrajectory; }, [setCurrentTrajectory]);
 
-  // Recording loop using requestAnimationFrame
   useEffect(() => {
-    if (recordingState === 'recording') {
-      // Initialize start time on first recording or continuing from a point
-      if (startTimeRef.current === 0) {
-        const trajectory = currentTrajectoryRef.current;
-        const baseTimestamp = trajectory && trajectory.frames.length > 0
-          ? trajectory.frames[trajectory.frames.length - 1].timestamp
-          : 0;
-        startTimeRef.current = performance.now() - baseTimestamp;
+    if (recordingState !== 'recording') {
+      // Flush buffered frames to React state.
+      // Skip if currentTrajectory is null — that means resetCurrentMotion was called
+      // and we should discard the buffer, not overwrite the cleared state.
+      if (
+        frameBufferRef.current.length > 0 &&
+        baseTrajectoryRef.current !== null &&
+        currentTrajectoryRef.current !== null
+      ) {
+        const lastFrame = frameBufferRef.current[frameBufferRef.current.length - 1];
+        setCurrentTrajectoryRef.current({
+          ...baseTrajectoryRef.current,
+          frames: frameBufferRef.current,
+          // Preserve completed flag — useTargetDetection may have set it to true
+          // while recording was still active (e.g. after "redraw from here").
+          // Without this, the flush would overwrite completed:true back to false.
+          completed: currentTrajectoryRef.current.completed,
+          totalTimeMs: lastFrame?.timestamp ?? baseTrajectoryRef.current.totalTimeMs
+        });
       }
+      frameBufferRef.current = [];
+      baseTrajectoryRef.current = null;
+      startTimeRef.current = 0;
+      lastFrameTimeRef.current = 0;
+      lastAngleRef.current = null;
+      return;
+    }
 
-      // Recording loop
-      const recordFrame = () => {
-        const config = robotConfigRef.current;
-        const trajectory = currentTrajectoryRef.current;
+    // Snapshot the trajectory at the moment recording starts.
+    // We never read currentTrajectoryRef inside the rAF loop — the buffer
+    // is the sole source of truth while recording is active.
+    const snapshot = currentTrajectoryRef.current;
+    baseTrajectoryRef.current = snapshot;
+    frameBufferRef.current = snapshot ? [...snapshot.frames] : [];
 
-        if (!trajectory) {
-          animationFrameRef.current = requestAnimationFrame(recordFrame);
-          return;
+    const existingFrames = frameBufferRef.current;
+    const baseTimestamp = existingFrames.length > 0
+      ? existingFrames[existingFrames.length - 1].timestamp
+      : 0;
+    startTimeRef.current = performance.now() - baseTimestamp;
+
+    // Initialize lastFrameTime one interval in the past so the first rAF
+    // fires exactly one full FRAME_INTERVAL after recording starts (no burst).
+    lastFrameTimeRef.current = performance.now() - FRAME_INTERVAL;
+
+    lastAngleRef.current = existingFrames.length > 0
+      ? {
+          shoulderAngle: existingFrames[existingFrames.length - 1].shoulderAngle,
+          elbowAngle: existingFrames[existingFrames.length - 1].elbowAngle
         }
+      : null;
 
-        // Check if configuration actually changed (avoid duplicate frames)
-        const lastConfig = lastRecordedConfigRef.current;
-        const hasChanged = !lastConfig ||
-          Math.abs(lastConfig.shoulderAngle - config.shoulderAngle) > 0.0001 ||
-          Math.abs(lastConfig.elbowAngle - config.elbowAngle) > 0.0001;
+    const recordFrame = (now: number) => {
+      const elapsed = now - lastFrameTimeRef.current;
+      if (elapsed >= FRAME_INTERVAL) {
+        // Snap forward by whole intervals to prevent drift accumulation
+        lastFrameTimeRef.current = now - (elapsed % FRAME_INTERVAL);
+
+        const config = robotConfigRef.current;
+        const last = lastAngleRef.current;
+        const hasChanged =
+          !last ||
+          Math.abs(last.shoulderAngle - config.shoulderAngle) > 0.0001 ||
+          Math.abs(last.elbowAngle - config.elbowAngle) > 0.0001;
 
         if (hasChanged) {
-          // Record this frame
           const { elbowPosition, endEffectorPosition } = forwardKinematics(config);
-
-          const frame: MotionFrame = {
-            timestamp: performance.now() - startTimeRef.current,
+          frameBufferRef.current.push({
+            timestamp: now - startTimeRef.current,
             shoulderAngle: config.shoulderAngle,
             elbowAngle: config.elbowAngle,
             endEffectorPosition,
             elbowPosition
-          };
-
-          setCurrentTrajectoryRef.current({
-            ...trajectory,
-            frames: [...trajectory.frames, frame]
           });
-
-          // Update last recorded configuration
-          lastRecordedConfigRef.current = {
+          lastAngleRef.current = {
             shoulderAngle: config.shoulderAngle,
             elbowAngle: config.elbowAngle
           };
         }
-
-        // Continue recording loop
-        animationFrameRef.current = requestAnimationFrame(recordFrame);
-      };
-
-      // Start recording loop
+      }
       animationFrameRef.current = requestAnimationFrame(recordFrame);
-    } else {
-      // Stop recording
+    };
+
+    animationFrameRef.current = requestAnimationFrame(recordFrame);
+
+    return () => {
       if (animationFrameRef.current !== undefined) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = undefined;
       }
-      startTimeRef.current = 0;
-      lastRecordedConfigRef.current = null;
-    }
-
-    // Cleanup
-    return () => {
-      if (animationFrameRef.current !== undefined) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
     };
   }, [recordingState]);
+
+  return { frameBufferRef };
 }

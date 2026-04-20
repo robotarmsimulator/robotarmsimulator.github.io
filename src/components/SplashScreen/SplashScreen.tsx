@@ -56,7 +56,7 @@ export default function SplashScreen() {
             id="userId"
             className="user-id-input"
             // placeholder="Enter your Prolific ID or leave blank" normal version
-            placeholder="Example: JaneDoe" // K class study version
+            placeholder="Example: Jane Doe" // K class study version
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
           />

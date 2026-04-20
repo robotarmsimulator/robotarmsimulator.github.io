@@ -27,7 +27,8 @@ export default function EndScreen() {
         userSession.completedMotions,
         participantId,
         userSession.sessionId,
-        userSession.promptSet
+        userSession.promptSet,
+        userSession.tutorialCompleted
       );
       setDownloaded(true);
     } catch (error) {
@@ -73,7 +74,7 @@ export default function EndScreen() {
         <div className="end-description">
           <p>
             Your data has been recorded successfully. Please download your data files
-            using the button below.
+            using the button below and then follow the next steps.
           </p>
           {/* {userSession.userId && (
             <p>
@@ -104,9 +105,9 @@ export default function EndScreen() {
         )}
 
         <div className="end-footer">
-          <p>
+          {/* <p>
             Thank you for your participation in this research study.
-          </p>
+          </p> */}
         </div>
       </div>
     </div>

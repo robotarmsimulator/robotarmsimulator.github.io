@@ -34,14 +34,14 @@ export default function Controls() {
     startPlayback,
     stopPlayback,
     stopRecording,
-    playbackFrame
+    playbackFrame,
+    logEvent
   } = useAppContext();
 
   // Clear smoothing state if trajectory changes externally (e.g., from redraw, undo, reset)
   useEffect(() => {
     const currentId = currentTrajectory?.promptType + '_' + currentTrajectory?.frames.length;
 
-    // If trajectory changed and we're in smoothing mode, cancel smoothing
     if (trajectoryIdRef.current !== null && trajectoryIdRef.current !== currentId && showSmoothingSlider) {
       setShowSmoothingSlider(false);
       setOriginalTrajectory(null);
@@ -52,7 +52,6 @@ export default function Controls() {
   }, [currentTrajectory, showSmoothingSlider]);
 
   const handleReset = () => {
-    // Stop recording before showing modal to prevent interference
     if (recordingState === 'recording') {
       stopRecording();
     }
@@ -75,16 +74,13 @@ export default function Controls() {
       return;
     }
 
-    // Check if Ctrl key is pressed for bypass
     const ctrlPressed = e.ctrlKey || e.metaKey;
 
-    // Check if animation has been played
     if (!hasPlayedAnimation && !ctrlPressed) {
       setShowPlaybackWarning(true);
       return;
     }
 
-    // All checks passed, complete the motion
     completeCurrentMotion();
     setHasPlayedAnimation(false);
   };
@@ -93,12 +89,11 @@ export default function Controls() {
     if (recordingState === 'playing') {
       stopPlayback();
     } else {
-      // If we're at or near the end, restart from the beginning
       const totalFrames = currentTrajectory?.frames.length || 0;
       if (totalFrames > 0 && playbackFrame >= totalFrames - 1) {
-        startPlayback(0); // Start from frame 0
+        startPlayback(0);
       } else {
-        startPlayback(); // Start from current frame
+        startPlayback();
       }
       setHasPlayedAnimation(true);
     }
@@ -109,7 +104,6 @@ export default function Controls() {
       alert('Not enough frames to smooth. Please record a longer motion.');
       return;
     }
-    // Save original trajectory for real-time preview
     setOriginalTrajectory(currentTrajectory);
     setSmoothingStrength(0);
     setShowSmoothingSlider(true);
@@ -137,7 +131,7 @@ export default function Controls() {
   };
 
   const handleDoneSmoothing = () => {
-    // Keep the smoothed version
+    if (smoothingStrength > 0) logEvent('smoothed');
     setShowSmoothingSlider(false);
     setOriginalTrajectory(null);
   };
@@ -148,146 +142,168 @@ export default function Controls() {
 
   return (
     <div className="controls-container">
+      {/* Timeline lives in its own full-width row */}
+      <Timeline />
+
+      {/* Action buttons row */}
       <div className="controls-main">
-        <Timeline />
-
         <div className="controls-group">
-        <button
-          className={`control-button ${recordingState === 'playing' ? 'recording' : ''}`}
-          onClick={handlePlayback}
-          disabled={!canPlay}
-          title={recordingState === 'playing' ? 'Stop playback' : 'Play recorded motion'}
-        >
-          {recordingState === 'playing' ? <Pause size={16} /> : <Play size={16} />}
-          <span className="label">{recordingState === 'playing' ? 'Pause' : 'Play'}</span>
-        </button>
+          <button
+            className={`control-button${recordingState === 'playing' ? ' recording' : ''}`}
+            onClick={handlePlayback}
+            disabled={!canPlay}
+            data-tooltip={
+              (!canPlay) // Your "disabled" condition
+                ? null                              // Hide the tooltip
+                : (recordingState === 'playing'          // If not disabled, check play state
+                  ? 'Pause playback'
+                  : 'Play back your recorded motion')
+            }
+          >
+            {recordingState === 'playing' ? <Pause size={16} /> : <Play size={16} />}
+            <span className="label">{recordingState === 'playing' ? 'Pause' : 'Play'}</span>
+          </button>
 
-        <button
-          className="control-button"
-          onClick={handleReset}
-          disabled={!currentTrajectory || !hasFrames || recordingState === 'playing'}
-          title="Reset current motion"
-        >
-          <RotateCcw size={16} />
-          <span className="label">Reset</span>
-        </button>
+          <button
+            className="control-button"
+            onClick={handleReset}
+            disabled={!currentTrajectory || !hasFrames || recordingState === 'playing'}
+            data-tooltip={(!hasFrames || recordingState === 'playing')
+              ? null
+              : 'Clear the current motion and start over'}
+          >
+            <RotateCcw size={16} />
+            <span className="label">Reset</span>
+          </button>
 
-        <button
-          className="control-button smooth"
-          onClick={handleOpenSmoothing}
-          disabled={!hasFrames || recordingState === 'playing'}
-          title="Smooth out the trajectory"
-        >
-          <Waves size={16} />
-          <span className="label">Smooth</span>
-        </button>
+          <button
+            className="control-button smooth"
+            onClick={handleOpenSmoothing}
+            disabled={!hasFrames || recordingState === 'playing'}
+            data-tooltip={(!hasFrames || recordingState === 'playing')
+              ? null
+              : 'Smooth out jitter in the recorded path'}
+          >
+            <Waves size={16} />
+            <span className="label">Smooth</span>
+          </button>
 
-        <button
-          className="control-button undo"
-          onClick={undo}
-          disabled={!canUndo || recordingState === 'playing'}
-          title="Undo last change"
-        >
-          <Undo2 size={16} />
-          <span className="label">Undo</span>
-        </button>
+          <button
+            className="control-button undo"
+            onClick={undo}
+            disabled={!canUndo || recordingState === 'playing'}
+            data-tooltip={
+              (!hasFrames)
+              ? null
+              :(!canUndo || recordingState === 'playing')
+              ? 'Nothing to Undo! You may want to try the "Reset" button.'
+              : 'Undo the last change'}
+          >
+            <Undo2 size={16} />
+            <span className="label">Undo</span>
+          </button>
 
-        <button
-          className="control-button redo"
-          onClick={redo}
-          disabled={!canRedo || recordingState === 'playing'}
-          title="Redo last change"
-        >
-          <Redo2 size={16} />
-          <span className="label">Redo</span>
-        </button>
+          <button
+            className="control-button redo"
+            onClick={redo}
+            disabled={!canRedo || recordingState === 'playing'}
+            data-tooltip={
+              (!hasFrames)
+              ? null
+              : (!canUndo || recordingState === 'playing')
+              ? 'Nothing to Redo!'
+              : 'Redo the last undone change'}
+          >
+            <Redo2 size={16} />
+            <span className="label">Redo</span>
+          </button>
         </div>
 
         <button
-          className={`control-button complete ${canComplete ? 'ready' : ''}`}
+          className={`control-button complete${canComplete ? ' ready' : ''}`}
           onClick={handleComplete}
           disabled={!canComplete || recordingState === 'playing'}
-          title={canComplete ? 'Complete and move to next prompt' : 'Move arm to target first'}
+          data-tooltip={canComplete ? 'Save this motion and move to the next prompt' : 'Reach the green target to enable this button'}
         >
           <Check size={16} />
           <span className="label">Complete</span>
         </button>
       </div>
 
-      {showSmoothingSlider && (
-        <div className="smoothing-panel">
-          <div className="smoothing-header">
-            <label htmlFor="smoothing-slider">Smoothing Strength (drag to preview)</label>
-            <span className="smoothing-value">{smoothingStrength}%</span>
-          </div>
-          <input
-            id="smoothing-slider"
-            type="range"
-            min="0"
-            max="100"
-            value={smoothingStrength}
-            onChange={(e) => handleSmoothingChange(Number(e.target.value))}
-            className="smoothing-slider"
-          />
-          <div className="smoothing-buttons">
-            <button className="smoothing-apply" onClick={handleDoneSmoothing}>
-              Done
-            </button>
-            <button className="smoothing-cancel" onClick={handleCancelSmoothing}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showPlaybackWarning && (
-        <div className="modal-overlay" onClick={() => setShowPlaybackWarning(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Play Animation First</h3>
-            <p>Please play the animation before continuing to the next prompt. This helps ensure you review your motion.</p>
-            <div className="modal-buttons">
-              <button
-                className="modal-button primary"
-                onClick={() => {
-                  setShowPlaybackWarning(false);
-                  handlePlayback();
-                }}
-              >
-                Play Now
-              </button>
-              <button
-                className="modal-button"
-                onClick={() => setShowPlaybackWarning(false)}
-              >
-                Close
-              </button>
+      {
+        showSmoothingSlider && (
+          <div className="smoothing-panel">
+            <div className="smoothing-header">
+              <label htmlFor="smoothing-slider">Smoothing Strength (drag to preview)</label>
+              <span className="smoothing-value">{smoothingStrength}%</span>
             </div>
-          </div>
-        </div>
-      )}
-
-      {showResetConfirm && (
-        <div className="modal-overlay" onClick={cancelReset}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Reset Motion?</h3>
-            <p>Are you sure you want to reset the current motion? This action can be undone.</p>
-            <div className="modal-buttons">
-              <button
-                className="modal-button primary"
-                onClick={confirmReset}
-              >
-                Reset
+            <input
+              id="smoothing-slider"
+              type="range"
+              min="0"
+              max="100"
+              value={smoothingStrength}
+              onChange={(e) => handleSmoothingChange(Number(e.target.value))}
+              className="smoothing-slider"
+            />
+            <div className="smoothing-buttons">
+              <button className="smoothing-apply" onClick={handleDoneSmoothing}>
+                Done
               </button>
-              <button
-                className="modal-button"
-                onClick={cancelReset}
-              >
+              <button className="smoothing-cancel" onClick={handleCancelSmoothing}>
                 Cancel
               </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+
+      {
+        showPlaybackWarning && (
+          <div className="modal-overlay" onClick={() => setShowPlaybackWarning(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3>Play Animation First</h3>
+              <p>Please play the animation before continuing. This helps ensure you review your motion.</p>
+              <div className="modal-buttons">
+                <button
+                  className="modal-button primary"
+                  onClick={() => {
+                    setShowPlaybackWarning(false);
+                    handlePlayback();
+                  }}
+                >
+                  Play Now
+                </button>
+                <button
+                  className="modal-button"
+                  onClick={() => setShowPlaybackWarning(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        showResetConfirm && (
+          <div className="modal-overlay" onClick={cancelReset}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3>Reset Motion?</h3>
+              <p>Are you sure you want to reset the current motion? This action CAN be undone.</p>
+              <div className="modal-buttons">
+                <button className="modal-button primary" onClick={confirmReset}>
+                  Reset
+                </button>
+                <button className="modal-button" onClick={cancelReset}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }

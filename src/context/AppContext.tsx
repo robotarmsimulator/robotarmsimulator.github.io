@@ -64,6 +64,15 @@ interface AppContextType {
 
   // Redraw from point
   redrawFromFrame: (frameIndex: number) => void;
+
+  // Tutorial completion
+  setTutorialCompleted: (completed: boolean) => void;
+
+  // Attempt tracking (resets to 1 on each new prompt, increments on reset)
+  currentAttemptCount: number;
+
+  // Event logging
+  logEvent: (event: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -77,6 +86,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [undoHistory, setUndoHistory] = useState<MotionTrajectory[]>([]);
   const [redoHistory, setRedoHistory] = useState<MotionTrajectory[]>([]);
   const [playbackFrame, setPlaybackFrame] = useState(0);
+
+  const [currentAttemptCount, setCurrentAttemptCount] = useState(1);
+  const [promptEventLog, setPromptEventLog] = useState<string[]>([]);
+  const [promptReplayCount, setPromptReplayCount] = useState(0);
+
+  const logEvent = (event: string) => {
+    setPromptEventLog(prev => [...prev, event]);
+  };
 
   const [robotConfig, setRobotConfig] = useState<RobotArmConfig>(() => {
     const activePose = getActivePosePreset();
@@ -102,7 +119,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       completedMotions: [],
       currentPromptIndex: 0,
       startTime: Date.now(),
-      activePosePreset: activePose.name
+      activePosePreset: activePose.name,
+      tutorialCompleted: false
     });
 
     // Set initial target position from preset
@@ -115,10 +133,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const stopRecording = () => {
+    if (recordingState === 'recording') {
+      logEvent('recorded');
+    }
     setRecordingState('idle');
   };
 
   const startPlayback = (fromFrame?: number) => {
+    if (recordingState === 'recording') {
+      logEvent('recorded');
+    }
+    logEvent('watched');
+    setPromptReplayCount(prev => prev + 1);
     if (fromFrame !== undefined) {
       setPlaybackFrame(fromFrame);
     }
@@ -143,7 +169,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetCurrentMotion = () => {
     if (currentTrajectory) {
-      // Save to undo history before resetting
+      logEvent('reset');
+      setCurrentAttemptCount(prev => prev + 1);
       setUndoHistory(prev => [...prev, currentTrajectory]);
       setCurrentTrajectory(null);
       setRecordingState('idle');
@@ -156,12 +183,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const finalEventLog = [...promptEventLog, 'completed'];
+    const finalTrajectory: MotionTrajectory = {
+      ...currentTrajectory,
+      attemptCount: currentAttemptCount,
+      replayCount: promptReplayCount,
+      eventLog: finalEventLog
+    };
+
+    // Stop any active recording/playback before clearing state
+    setRecordingState('idle');
+
     // Add to completed motions
     setUserSession(prev => {
       if (!prev) return prev;
       return {
         ...prev,
-        completedMotions: [...prev.completedMotions, currentTrajectory]
+        completedMotions: [...prev.completedMotions, finalTrajectory]
       };
     });
 
@@ -169,7 +207,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentTrajectory(null);
     setUndoHistory([]);
     setRedoHistory([]);
-    setRecordingState('idle');
     resetRobotPosition();
 
     // Move to next prompt or completion
@@ -180,6 +217,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!userSession) return;
 
     const nextIndex = userSession.currentPromptIndex + 1;
+
+    setCurrentAttemptCount(1);
+    setPromptEventLog([]);
+    setPromptReplayCount(0);
 
     if (nextIndex >= userSession.promptOrder.length) {
       // All prompts completed
@@ -224,10 +265,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRedoHistory(newHistory);
   };
 
+  const setTutorialCompleted = (completed: boolean) => {
+    setUserSession(prev => {
+      if (!prev) return prev;
+      return { ...prev, tutorialCompleted: completed };
+    });
+  };
+
   const redrawFromFrame = (frameIndex: number) => {
     if (!currentTrajectory || frameIndex < 0 || frameIndex >= currentTrajectory.frames.length) return;
 
-    // Save current trajectory to undo history
+    logEvent('redraw');
     setUndoHistory(prev => [...prev, currentTrajectory]);
 
     // Truncate trajectory to the selected frame
@@ -271,7 +319,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     redo,
     canUndo: undoHistory.length > 0,
     canRedo: redoHistory.length > 0,
-    redrawFromFrame
+    redrawFromFrame,
+    setTutorialCompleted,
+    currentAttemptCount,
+    logEvent
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

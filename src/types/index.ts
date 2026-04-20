@@ -44,6 +44,8 @@ export interface MotionTrajectory {
   promptText: string;
   completed: boolean;
   attemptCount: number;
+  replayCount: number;
+  eventLog: string[];
   totalTimeMs: number;
 }
 
@@ -101,6 +103,7 @@ export interface UserSession {
   currentPromptIndex: number;
   startTime: number;            // Session start timestamp
   activePosePreset: string;     // Name of the active pose preset
+  tutorialCompleted: boolean;   // true = completed all steps, false = skipped
 }
 
 /**
@@ -152,9 +155,12 @@ export interface SessionCSVData {
   participantId: string;
   sessionId: string;
   promptSet: 'laban' | 'metaphor';
+  tutorialCompleted: boolean;
   promptType: PromptType;
   promptText: string;
   attemptCount: number;
+  replayCount: number;
+  eventLog: string;
   totalTimeMs: number;
   frameCount: number;
   completed: boolean;

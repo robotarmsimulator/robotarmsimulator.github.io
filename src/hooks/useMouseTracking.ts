@@ -1,84 +1,85 @@
 /**
  * useMouseTracking hook
- * Manages mouse position, following state, and mouse event handlers
+ * Manages pointer position, following state, and pointer event handlers.
+ * Uses the Pointer Events API to handle mouse, touch, and stylus uniformly.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Vector2D, RobotArmConfig } from '../types';
+import type { Vector2D, RobotArmConfig, RecordingState } from '../types';
 import { forwardKinematics, distance } from '../utils/kinematics';
 import { CANVAS_CONFIG } from '../constants/config';
 
 interface UseMouseTrackingProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   robotConfig: RobotArmConfig;
+  recordingState: RecordingState;
 }
 
 interface UseMouseTrackingReturn {
   mousePosition: Vector2D | null;
   isFollowing: boolean;
   setIsFollowing: (following: boolean) => void;
-  handleMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  handleMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => void;
-  handleMouseLeave: () => void;
+  handlePointerDown: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  handlePointerMove: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  handlePointerUp: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  handlePointerLeave: () => void;
 }
 
 export function useMouseTracking({
   canvasRef,
-  robotConfig
+  robotConfig,
+  recordingState
 }: UseMouseTrackingProps): UseMouseTrackingReturn {
   const [mousePosition, setMousePosition] = useState<Vector2D | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const robotConfigRef = useRef(robotConfig);
+  const recordingStateRef = useRef(recordingState);
 
-  // Keep ref in sync
-  useEffect(() => {
-    robotConfigRef.current = robotConfig;
-  }, [robotConfig]);
+  useEffect(() => { robotConfigRef.current = robotConfig; }, [robotConfig]);
+  useEffect(() => { recordingStateRef.current = recordingState; }, [recordingState]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasPos = useCallback((clientX: number, clientY: number): Vector2D | null => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    // Map mouse coordinates to canvas logical coordinate space
-    // Account for any CSS scaling between the display size and logical size
-    const scaleX = CANVAS_CONFIG.width / rect.width;
-    const scaleY = CANVAS_CONFIG.height / rect.height;
-
-    setMousePosition({
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
-    });
+    return {
+      x: (clientX - rect.left) * (CANVAS_CONFIG.width / rect.width),
+      y: (clientY - rect.top) * (CANVAS_CONFIG.height / rect.height)
+    };
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Block interaction during playback or paused state
+    if (recordingStateRef.current === 'playing' || recordingStateRef.current === 'paused') return;
 
-    const rect = canvas.getBoundingClientRect();
-    // Map mouse coordinates to canvas logical coordinate space
-    const scaleX = CANVAS_CONFIG.width / rect.width;
-    const scaleY = CANVAS_CONFIG.height / rect.height;
-
-    const clickPos: Vector2D = {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
-    };
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    if (!pos) return;
 
     const { endEffectorPosition } = forwardKinematics(robotConfigRef.current);
-
-    // Check if click is within the end effector (radius 14px from drawGripper)
-    const clickDistance = distance(clickPos, endEffectorPosition);
-    if (clickDistance <= 20) { // Slightly larger hitbox for easier clicking
-      // CRITICAL: Use actual click position, not end effector position
-      // This ensures immediate response to where the user actually clicked
-      // The IK solver will choose the configuration that minimizes joint movement
-      setMousePosition(clickPos);
+    if (distance(pos, endEffectorPosition) <= 20) {
+      setMousePosition(pos);
       setIsFollowing(true);
+      // Capture pointer so move events keep coming even outside the canvas
+      (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    }
+  }, [getCanvasPos]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    if (pos) setMousePosition(pos);
+  }, [getCanvasPos]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    setIsFollowing(false);
+    try {
+      (e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // pointerId may already be gone on some browsers
     }
   }, []);
 
-  const handleMouseLeave = useCallback(() => {
+  const handlePointerLeave = useCallback(() => {
+    // Clear the cursor crosshair indicator when pointer leaves the canvas
     setMousePosition(null);
   }, []);
 
@@ -86,8 +87,9 @@ export function useMouseTracking({
     mousePosition,
     isFollowing,
     setIsFollowing,
-    handleMouseMove,
-    handleMouseDown,
-    handleMouseLeave
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerLeave
   };
 }

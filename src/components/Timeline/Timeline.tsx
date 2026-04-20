@@ -1,19 +1,24 @@
 /**
  * Timeline component
- * Displays motion timeline with scrubbing capability
+ * Video-player style timeline with step controls and scrubbing
  */
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { SkipBack, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import './Timeline.css';
 
-// Track if user has seen the redraw hint (persists across component remounts within session)
+// Track if user has seen the redraw hint. This persists across component remounts within session
 let hasShownRedrawHint = false;
 
+const STEP_FRAMES = 1; // play around with this
+
 export default function Timeline() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showRedrawConfirm, setShowRedrawConfirm] = useState(false);
+  const [liveRecordingMs, setLiveRecordingMs] = useState<number>(0);
+  const recordingStartRef = useRef<number>(0);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   const {
     currentTrajectory,
@@ -25,91 +30,89 @@ export default function Timeline() {
     recordingState
   } = useAppContext();
 
-  // Use playbackFrame from context as the current frame
   const currentFrame = playbackFrame;
-
   const totalFrames = currentTrajectory?.frames.length || 0;
+  const isPlaying = recordingState === 'playing';
 
-  // Draw timeline
+  // drive a live clock from performance.now() during recording so the display
+  // never pauses when the arm is stationary
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !currentTrajectory) return;
+    if (recordingState === 'recording') {
+      const baseMs = currentTrajectory?.frames.at(-1)?.timestamp ?? 0;
+      recordingStartRef.current = performance.now() - baseMs;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      const id = setInterval(() => {
+        setLiveRecordingMs(performance.now() - recordingStartRef.current);
+      }, 100);
+      return () => clearInterval(id);
+    } else {
+      setLiveRecordingMs(0);
+    }
+  }, [recordingState]);
 
-    // Handle high DPI displays
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
+  // const currentTimeMs =
+  //   totalFrames > 0 && currentTrajectory
+  //     ? (currentTrajectory.frames[Math.min(currentFrame, totalFrames - 1)]?.timestamp ?? 0)
+  //     : 0;
 
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+  const frameTimeMs =
+  totalFrames > 0 && currentTrajectory
+    ? (currentTrajectory.frames[Math.min(currentFrame, totalFrames - 1)]?.timestamp ?? 0)
+    : 0;
 
-    // ctx.scale(dpr, dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const [playbackNow, setPlaybackNow] = useState(0);
+  const playbackStartRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
 
-    const width = rect.width;
-    const height = rect.height;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-
-    if (totalFrames === 0) return;
-
-    const barHeight = 6;
-    const barY = (height - barHeight) / 2;
-    const scrubberRadius = 8;
-
-    // Get theme colors
-    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim();
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
-    const surfaceColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-color').trim();
-    const textLightColor = getComputedStyle(document.documentElement).getPropertyValue('--text-light-color').trim();
-
-    // Draw background bar (theme-aware)
-    ctx.fillStyle = borderColor;
-    ctx.beginPath();
-    ctx.roundRect(0, barY, width, barHeight, 3);
-    ctx.fill();
-
-    // Draw progress bar (primary color)
-    const progressWidth = totalFrames > 1 ? (currentFrame / (totalFrames - 1)) * width : width;
-    ctx.fillStyle = primaryColor;
-    ctx.beginPath();
-    ctx.roundRect(0, barY, progressWidth, barHeight, 3);
-    ctx.fill();
-
-    // Draw scrubber circle
-    const scrubberX = totalFrames > 1 ? (currentFrame / (totalFrames - 1)) * width : width / 2;
-    ctx.fillStyle = primaryColor;
-    ctx.beginPath();
-    ctx.arc(scrubberX, height / 2, scrubberRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw white inner circle for scrubber
-    ctx.fillStyle = surfaceColor;
-    ctx.beginPath();
-    ctx.arc(scrubberX, height / 2, scrubberRadius - 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw frame counter below with better rendering
-    ctx.fillStyle = textLightColor;
-    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.textAlign = 'center';
-
-    // Enable better text rendering
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    ctx.fillText(`Frame ${currentFrame + 1} / ${totalFrames}`, width / 2, height - 5);
-  }, [currentFrame, totalFrames, currentTrajectory]);
-
-  // Update robot config when scrubbing (only when not playing - playback handles its own updates)
   useEffect(() => {
-    if (!currentTrajectory || totalFrames === 0) return;
-    // Don't update during playback - usePlayback handles that
-    if (recordingState === 'playing') return;
+    if (recordingState === 'playing') {
+      // const startTime =
+      //   currentTrajectory?.frames[currentFrame]?.timestamp ?? 0;
+      const startTime = frameTimeMs;
+      playbackStartRef.current = performance.now() - startTime;
 
+      const tick = () => {
+        setPlaybackNow(performance.now());
+        rafRef.current = requestAnimationFrame(tick);
+      };
+
+      rafRef.current = requestAnimationFrame(tick);
+
+      return () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      };
+    }
+  }, [recordingState, frameTimeMs]);
+
+  const currentTimeMs =
+    recordingState === 'playing'
+      ? playbackNow - playbackStartRef.current
+      : frameTimeMs;
+      
+  const totalTimeMs =
+    totalFrames > 0 && currentTrajectory
+      ? currentTrajectory.frames[totalFrames - 1].timestamp
+      : 0;
+
+  // During recording, use the live wall-clock value instead of frame timestamps
+  const displayCurrentMs = recordingState === 'recording' ? liveRecordingMs : currentTimeMs;
+  const displayTotalMs = recordingState === 'recording' ? liveRecordingMs : totalTimeMs;
+
+  const formatTime = (ms: number) => (ms / 1000).toFixed(1) + 's';
+
+  // During recording the scrub head is always pinned to the end
+  // const progress = recordingState === 'recording'
+  //   ? 1
+  //   : (totalFrames > 1 ? currentFrame / (totalFrames - 1) : 0);
+
+  const progress =
+  totalTimeMs > 0
+    ? currentTimeMs / totalTimeMs
+    : 0;
+
+  // this updates robot config when frame changes during scrubbing
+  useEffect(() => {
+    if (!currentTrajectory || totalFrames === 0 || recordingState === 'playing') return;
     const frame = currentTrajectory.frames[currentFrame];
     if (frame) {
       setRobotConfig({
@@ -120,82 +123,75 @@ export default function Timeline() {
     }
   }, [currentFrame, recordingState]);
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDragging(true);
-    handleScrub(e);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isDragging) {
-      handleScrub(e);
+  // Reset to last frame when trajectory changes
+  useEffect(() => {
+    if (totalFrames > 0) {
+      setPlaybackFrame(totalFrames - 1);
     }
-  };
+  }, [totalFrames]);
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const seekToFrame = useCallback(
+    (frame: number) => {
+      if (isPlaying) return;
+      setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frame)));
+    },
+    [isPlaying, totalFrames, setPlaybackFrame]
+  );
 
-  const handleScrub = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !currentTrajectory) return;
-    // Don't allow scrubbing during playback
-    if (recordingState === 'playing') return;
+  const getFrameFromPointer = useCallback((clientX: number): number => {
+    if (!trackRef.current || totalFrames === 0) return 0;
+    const rect = trackRef.current.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    return Math.round(Math.max(0, Math.min(1, ratio)) * (totalFrames - 1));
+  }, [totalFrames]);
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const ratio = x / rect.width;
-    const frameIndex = Math.round(ratio * (totalFrames - 1));
-
-    setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
-  };
-
-  // Touch event handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    // Don't allow scrubbing during playback
-    if (recordingState === 'playing') return;
-
-    setIsDragging(true);
-    const touch = e.touches[0];
-    const canvas = canvasRef.current;
-    if (!canvas || !currentTrajectory) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const ratio = x / rect.width;
-    const frameIndex = Math.round(ratio * (totalFrames - 1));
-
-    setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+  // Attach document-level mouse listeners while dragging so the scrub
+  // continues even when the pointer leaves the track element.
+  useEffect(() => {
     if (!isDragging) return;
-    // Don't allow scrubbing during playback
-    if (recordingState === 'playing') return;
+ 
+    const handleMouseMove = (e: MouseEvent) => {
+      seekToFrame(getFrameFromPointer(e.clientX));
+    };
+ 
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+ 
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+ 
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, seekToFrame, getFrameFromPointer]);
 
-    const touch = e.touches[0];
-    const canvas = canvasRef.current;
-    if (!canvas || !currentTrajectory) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const ratio = x / rect.width;
-    const frameIndex = Math.round(ratio * (totalFrames - 1));
-
-    setPlaybackFrame(Math.max(0, Math.min(totalFrames - 1, frameIndex)));
+  const handleTrackMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isPlaying) return;
+    setIsDragging(true);
+    seekToFrame(getFrameFromPointer(e.clientX));
   };
 
-  const handleTouchEnd = () => {
-    setIsDragging(false);
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (isPlaying) return;
+    setIsDragging(true);
+    seekToFrame(getFrameFromPointer(e.touches[0].clientX));
+  }; 
+  
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!isDragging || isPlaying) return;
+    seekToFrame(getFrameFromPointer(e.touches[0].clientX));
   };
+
+  const handleTouchEnd = () => setIsDragging(false);
 
   const handleRedrawFromHere = () => {
-    // Show confirmation modal only the first time
     if (!hasShownRedrawHint) {
       setShowRedrawConfirm(true);
     } else {
-      // After first time, just do the redraw directly
       redrawFromFrame(currentFrame);
     }
   };
@@ -206,50 +202,94 @@ export default function Timeline() {
     redrawFromFrame(currentFrame);
   };
 
-  const cancelRedraw = () => {
-    setShowRedrawConfirm(false);
-  };
+  const cancelRedraw = () => setShowRedrawConfirm(false);
 
-  // Reset to last frame when trajectory changes
-  useEffect(() => {
-    if (totalFrames > 0) {
-      setPlaybackFrame(totalFrames - 1);
-    }
-  }, [totalFrames]);
+  const canRedraw = currentFrame > 0 && currentFrame < totalFrames - 1;
 
   if (!currentTrajectory || totalFrames === 0) {
     return (
       <div className="timeline-container">
         <div className="timeline-empty">
-          Click on the blue end effector to start recording
+          Click the robot's blue gripper to start recording.
         </div>
       </div>
     );
   }
 
-  const canRedraw = currentFrame > 0 && currentFrame < totalFrames - 1;
-
   return (
     <div className="timeline-container">
-      <canvas
-        ref={canvasRef}
-        // width={600}
-        // height={60}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        className="timeline-canvas"
-      />
+      <div className="timeline-player">
+        {/* Skip to start */}
+        <button
+          className="timeline-step-btn"
+          onClick={() => seekToFrame(0)}
+          disabled={isPlaying || currentFrame === 0}
+          title="Skip to beginning"
+        >
+          <SkipBack size={12} />
+        </button>
+
+        {/* Step back */}
+        <button
+          className="timeline-step-btn"
+          onClick={() => seekToFrame(currentFrame - STEP_FRAMES)}
+          disabled={isPlaying || currentFrame === 0}
+          title="Step back"
+        >
+          <ChevronLeft size={14} />
+        </button>
+
+        {/* Scrubbable progress track */}
+        <div
+          ref={trackRef}
+          className={`timeline-track${isDragging ? ' dragging' : ''}`}
+          onMouseDown={handleTrackMouseDown}
+          //onMouseMove={handleTrackMouseMove}
+          //onMouseUp={handleTrackMouseUp}
+          // onMouseLeave={handleTrackMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+        >
+          <div className="timeline-fill" style={{ width: `${progress * 100}%` }} />
+          <div className="timeline-thumb" style={{ left: `${progress * 100}%` }} />
+        </div>
+
+        {/* Step forward */}
+        <button
+          className="timeline-step-btn"
+          onClick={() => seekToFrame(currentFrame + STEP_FRAMES)}
+          disabled={isPlaying || currentFrame >= totalFrames - 1}
+          title="Step forward"
+        >
+          <ChevronRight size={14} />
+        </button>
+
+        {/* skip to end */}
+        <button
+          className="timeline-step-btn"
+          onClick={() => seekToFrame(totalFrames - 1)}
+          disabled={isPlaying || currentFrame >= totalFrames - 1}
+          title="Skip to end"
+        >
+          <SkipForward size={12} />
+        </button>
+
+        <span className="timeline-time">
+          {formatTime(displayCurrentMs)} / {formatTime(displayTotalMs)}
+        </span>
+      </div>
+
       <button
         className="redraw-button"
         onClick={handleRedrawFromHere}
-        disabled={!canRedraw}
-        title={canRedraw ? "Delete everything after this frame and redraw from here" : "Scrub to a frame in the middle to redraw"}
+        disabled={!canRedraw || isPlaying}
+        title={
+          canRedraw
+            ? 'Delete everything after this point and continue drawing from here'
+            : 'Scrub to a point in the middle to use Redraw'
+        }
       >
         Redraw from Here
       </button>
@@ -258,18 +298,15 @@ export default function Timeline() {
         <div className="modal-overlay" onClick={cancelRedraw}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>Redraw from Here?</h3>
-            <p>Everything after this frame will be deleted. You can then continue drawing from this point.</p>
+            <p>
+              Everything after this point will be deleted. You can then continue
+              drawing from here.
+            </p>
             <div className="modal-buttons">
-              <button
-                className="modal-button primary"
-                onClick={confirmRedraw}
-              >
+              <button className="modal-button primary" onClick={confirmRedraw}>
                 Redraw
               </button>
-              <button
-                className="modal-button"
-                onClick={cancelRedraw}
-              >
+              <button className="modal-button" onClick={cancelRedraw}>
                 Cancel
               </button>
             </div>

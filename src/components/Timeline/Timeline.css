@@ -2,98 +2,139 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 300px;
+  gap: 10px;
+  width: 100%;
 }
 
-.timeline-canvas {
+.timeline-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 1;
-  max-width: 700px;
-  height: 60px;
+  min-width: 0;
+}
+
+/* Step buttons (skip/step backward/forward) */
+.timeline-step-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--text-color);
   cursor: pointer;
-  background-color: transparent;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  padding: 0;
 }
 
+.timeline-step-btn:hover:not(:disabled) {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--primary-bg-text);
+}
+
+.timeline-step-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Scrubable track */
+.timeline-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: var(--border-color);
+  cursor: pointer;
+  min-width: 60px;
+  /* Expand hit area without changing visual size */
+  padding: 8px 0;
+  margin: -8px 0;
+  box-sizing: content-box;
+}
+
+.timeline-track.dragging {
+  cursor: grabbing;
+}
+
+.timeline-fill {
+  position: absolute;
+  left: 0;
+  top: 8px; /* offset for padding */
+  height: 6px;
+  background: var(--primary-color);
+  pointer-events: none;
+}
+
+.timeline-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  background: var(--primary-color);
+  border: 2px solid var(--surface-color);
+  border-radius: 50%;
+  box-shadow: 0 1px 4px var(--common-shadow);
+  pointer-events: none;
+  transition: transform 0.1s;
+}
+
+.timeline-track:hover .timeline-thumb,
+.timeline-track.dragging .timeline-thumb {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* Time display */
+.timeline-time {
+  font-size: 11px;
+  color: var(--text-light-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  min-width: 72px;
+  text-align: right;
+}
+
+/* Empty state */
 .timeline-empty {
   flex: 1;
-  padding: 12px;
+  padding: 10px 14px;
   text-align: center;
   color: var(--text-light-color);
   font-size: 12px;
   background-color: var(--surface-color);
   border: 2px dashed var(--border-color);
-  border-radius: 6px;
 }
 
+/* Redraw button */
 .redraw-button {
-  padding: 10px 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--border-color);
   background-color: var(--surface-color);
   color: var(--text-color);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .redraw-button:hover:not(:disabled) {
-  background-color: #f1f5f9;
-  border-color: var(--warning-color);
-  transform: translateY(-1px);
-}
-
-.redraw-button:active:not(:disabled) {
-  transform: translateY(0);
+  background-color: #fef9c3;
+  border-color: var(--warning-color, #f59e0b);
+  color: #92400e;
 }
 
 .redraw-button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .timeline-container {
-    gap: 6px;
-    min-width: 200px;
-  }
-
-  .timeline-canvas {
-    height: 50px;
-    touch-action: none;
-  }
-
-  .timeline-empty {
-    padding: 10px;
-    font-size: 11px;
-  }
-
-  .redraw-button {
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .timeline-container {
-    min-width: 150px;
-  }
-
-  .timeline-canvas {
-    height: 40px;
-  }
-
-  .redraw-button {
-    padding: 6px 10px;
-    font-size: 11px;
-  }
-}
-
-/* Redraw Confirmation Modal */
+/* Redraw confirmation modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -111,7 +152,6 @@
 .modal-content {
   background-color: var(--surface-color);
   padding: 32px;
-  border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   max-width: 400px;
   width: 90%;
@@ -141,7 +181,6 @@
 .modal-button {
   padding: 10px 20px;
   border: 2px solid var(--border-color);
-  border-radius: 8px;
   background-color: var(--surface-color);
   color: var(--text-color);
   font-size: 14px;
@@ -150,39 +189,50 @@
   transition: all 0.2s;
 }
 
-.modal-button:hover {
-  background-color: #f1f5f9;
-  border-color: #2563eb;
-  transform: translateY(-1px);
-}
-
-.modal-button.primary {
-  background-color: #2563eb;
-  color: white;
-  border-color: #2563eb;
-}
-
-.modal-button.primary:hover {
-  background-color: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .timeline-container {
+    gap: 8px;
+    flex-wrap: wrap;
   }
-  to {
-    transform: translateY(0);
-    opacity: 1;
+
+  .timeline-player {
+    gap: 4px;
+  }
+
+  .timeline-step-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .timeline-time {
+    font-size: 10px;
+    min-width: 60px;
+  }
+
+  .redraw-button {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .timeline-time {
+    display: none;
+  }
+
+  .redraw-button {
+    width: 100%;
+    text-align: center;
   }
 }

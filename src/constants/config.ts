@@ -5,7 +5,7 @@
 import type { Vector2D, PosePreset } from '../types';
 
 /**
- * colors just to have
+ * colors just to have. This is becoming increasingly depreciated.
  */
 export const COLORS = {
   primary: '#2563eb',      // Blue

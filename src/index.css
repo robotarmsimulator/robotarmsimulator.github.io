@@ -13,43 +13,72 @@
 
 /* Light mode (default) */
 :root[data-theme="light"] {
-  --primary-color: #2563eb;
-  --secondary-color: #7c3aed;
+  --primary-color: #1755d8;
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
-  --background-color: #f8fafc;
+  /* above: bad naming but I'm in too deep */
+  --background-color: #f3f9ff;
   --surface-color: #ffffff;
   --text-color: #1e293b;
+  --text-med-color: #475569;
   --text-light-color: #64748b;
   --border-color: #e2e8f0;
   --canvas-bg-color: #f8fafc;
   --timeline-bg-color: #f8fafc;
-  --prompt-gradient-start: #667eea;
-  --prompt-gradient-end: #764ba2;
+  --pattern-dot: rgba(0, 0, 0, 0.07);
+  --tooltip-background: #1e293b;
+  --common-secondary: #f8fafc;
+  --success-complement: #059669;
+  --success-text: #166534;
+  --success-bg: #f0fdf4;
+  --danger-complement: #991b1b;
+  --danger-hover: #fecaca;
+  --primary-hover: #1d4ed8;
+  --primary-bg-text: #ffffff;
+  --secondary-hover: #f1f5f9;
+
+  --common-shadow: rgba(0, 0, 0, 0.2);
+  --dramatic-dimmer: rgba(0, 0, 0, 0.5);
+
 }
 
 /* Dark mode */
 :root[data-theme="dark"] {
   --primary-color: #3b82f6;
-  --secondary-color: #8b5cf6;
-  --success-color: #10b981;
+  --success-color: #13d192;
+  --success-complement: #059669;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
   --background-color: #0f172a;
   --surface-color: #1e293b;
   --text-color: #f1f5f9;
+  --text-med-color: #475569;
   --text-light-color: #94a3b8;
   --border-color: #334155;
   --canvas-bg-color: #1e293b;
-  --timeline-bg-color: #0f172a;
-  --prompt-gradient-start: #4c1d95;
-  --prompt-gradient-end: #581c87;
+  --timeline-bg-color: #000001;
+  --pattern-dot: rgba(255, 255, 255, 0.07);
+  --tooltip-background: #1e293b;
+  --common-secondary: #475569;
+  --success-text: #166534;
+  --success-bg: #f0fdf4;
+  --danger-complement: #991b1b;
+  --danger-hover: #fecaca;
+  --primary-hover: #3b82f6;
+  --primary-bg-text: #ffffff;
+  --secondary-hover: #233a51;
+
+  --common-shadow: rgba(0, 0, 0, 0.2);
+  --dramatic-dimmer: rgba(0, 0, 0, 0.5);
+
 }
 
 body {
   color: var(--text-color);
   background-color: var(--background-color);
+  background-image: radial-gradient(circle, var(--pattern-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 body {

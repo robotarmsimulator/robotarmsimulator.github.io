@@ -40,15 +40,16 @@ export default function RobotArm() {
     setPlaybackFrame
   } = useAppContext();
 
-  // Mouse tracking and event handlers
+  // Pointer tracking (handles mouse, touch, and stylus uniformly)
   const {
     mousePosition,
     isFollowing,
     setIsFollowing,
-    handleMouseMove,
-    handleMouseDown,
-    handleMouseLeave
-  } = useMouseTracking({ canvasRef, robotConfig });
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerLeave
+  } = useMouseTracking({ canvasRef, robotConfig, recordingState });
 
   // Robot movement control
   useRobotControl({
@@ -65,7 +66,7 @@ export default function RobotArm() {
   });
 
   // Recording functionality
-  useRecording({
+  const { frameBufferRef } = useRecording({
     recordingState,
     robotConfig,
     currentTrajectory,
@@ -116,9 +117,14 @@ export default function RobotArm() {
     // Calculate arm positions
     const { elbowPosition, endEffectorPosition } = forwardKinematics(robotConfig);
 
-    // Draw trajectory path first (underneath)
-    if (currentTrajectory && currentTrajectory.frames.length > 1) {
-      drawTrajectoryPath(ctx, currentTrajectory.frames);
+    // Draw trajectory path first (underneath).
+    // During recording, read directly from the live buffer (no React state update needed).
+    // After recording, use the flushed trajectory from state.
+    const pathFrames = recordingState === 'recording'
+      ? frameBufferRef.current
+      : (currentTrajectory?.frames ?? []);
+    if (pathFrames.length > 1) {
+      drawTrajectoryPath(ctx, pathFrames);
     }
 
     // Draw target
@@ -141,55 +147,17 @@ export default function RobotArm() {
     }
   }, [robotConfig, targetPosition, currentTrajectory, mousePosition, isFollowing, recordingState]);
 
-  // Touch event handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const mouseEvent = {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      currentTarget: canvas
-    } as React.MouseEvent<HTMLCanvasElement>;
-
-    handleMouseDown(mouseEvent);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const mouseEvent = {
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      currentTarget: canvas
-    } as React.MouseEvent<HTMLCanvasElement>;
-
-    handleMouseMove(mouseEvent);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    handleMouseLeave();
-  };
-
   return (
     <div className="robot-arm-container">
       <canvas
         ref={canvasRef}
         width={CANVAS_CONFIG.width}
         height={CANVAS_CONFIG.height}
-        onMouseMove={handleMouseMove}
-        onMouseDown={handleMouseDown}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
         className="robot-arm-canvas"
       />
     </div>

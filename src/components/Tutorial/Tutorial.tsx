@@ -9,8 +9,8 @@ import './Tutorial.css';
 
 const tutorialSteps = [
   {
-    title: 'Welcome to the Robot Arm Simulator',
-    content: 'You will control a 2D robot arm to create expressive motions by moving your mouse. The arm will smoothly follow your cursor as you draw paths in the canvas.',
+    title: 'The basics',
+    content: 'You will control a 2D robot arm to create expressive motions by moving your mouse. The arm will follow your cursor as you draw paths in the canvas.',
     image: null
   },
   {
@@ -52,13 +52,14 @@ const tutorialSteps = [
 
 export default function Tutorial() {
   const [currentStep, setCurrentStep] = useState(0);
-  const { setAppState } = useAppContext();
+  const { setAppState, setTutorialCompleted } = useAppContext();
 
   const handleNext = () => {
     if (currentStep < tutorialSteps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Start the actual recording session
+      // User completed all tutorial steps
+      setTutorialCompleted(true);
       setAppState('recording');
     }
   };
@@ -70,6 +71,7 @@ export default function Tutorial() {
   };
 
   const handleSkip = () => {
+    // User skipped — tutorialCompleted stays false
     setAppState('recording');
   };
 

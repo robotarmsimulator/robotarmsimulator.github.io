@@ -94,7 +94,8 @@ export async function exportAllDataAsZip(
   trajectories: MotionTrajectory[],
   participantId: string,
   sessionId: string,
-  promptSet: 'laban' | 'metaphor'
+  promptSet: 'laban' | 'metaphor',
+  tutorialCompleted: boolean = false
 ): Promise<void> {
   const zip = new JSZip();
   const { filename: safeId } = nameToSafeFilename(participantId);
@@ -105,9 +106,12 @@ export async function exportAllDataAsZip(
     participantId,
     sessionId,
     promptSet,
+    tutorialCompleted,
     promptType: traj.promptType,
     promptText: traj.promptText,
     attemptCount: traj.attemptCount,
+    replayCount: traj.replayCount ?? 0,
+    eventLog: (traj.eventLog ?? []).join('; '),
     totalTimeMs: traj.totalTimeMs,
     frameCount: traj.frames.length,
     completed: traj.completed
@@ -221,6 +225,8 @@ export async function importTrajectoryCSV(file: File): Promise<MotionTrajectory 
           promptText: firstFrame.promptText,
           completed: true,
           attemptCount: 1,
+          replayCount: 0,
+          eventLog: [],
           totalTimeMs: motionFrames[motionFrames.length - 1].timestamp
         });
       } catch (error) {

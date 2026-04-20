@@ -16,7 +16,7 @@ export function drawWorkspace(ctx: CanvasRenderingContext2D, shoulderPosition: V
   // Draw dashed workspace boundary (range circle centered on robot base)
   const maxReach = ROBOT_CONFIG.upperArmLength + ROBOT_CONFIG.lowerArmLength;
 
-  ctx.strokeStyle = 'rgba(100, 116, 139, 0.1)';
+  ctx.strokeStyle = 'rgba(100, 116, 139, 0.75)';
   ctx.lineWidth = 2;
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
@@ -131,41 +131,31 @@ export function drawRecordingIndicator(ctx: CanvasRenderingContext2D) {
 export function drawTrajectoryPath(ctx: CanvasRenderingContext2D, frames: MotionFrame[]) {
   if (frames.length < 2) return;
 
-  // Use a smooth curve with reduced point density for better rendering
-  ctx.strokeStyle = COLORS.primary;
-  ctx.lineWidth = 4;
-  ctx.globalAlpha = 0.6;
+  const BASE_WIDTH = 4;
+  const MAX_WIDTH = 20;
+  // At 60fps, a normal moving frame is ~16.7ms. Widening starts after 3x that
+  // (~50ms pause) and grows slowly at 0.2px per extra frame interval.
+  const EXPECTED_MS = 1000 / 60;
+
+  ctx.globalAlpha = 0.7;
   ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  ctx.strokeStyle = COLORS.primary;
 
-  // Draw using quadratic curves for smoother path
-  ctx.beginPath();
-  ctx.moveTo(frames[0].endEffectorPosition.x, frames[0].endEffectorPosition.y);
+  for (let i = 1; i < frames.length; i++) {
+    const prev = frames[i - 1];
+    const curr = frames[i];
 
-  // Sample every 3rd frame to reduce noise and create smoother lines
-  const sampleRate = 3;
+    const dt = curr.timestamp - prev.timestamp;
+    const extraPausedFrames = Math.max(0, (dt / EXPECTED_MS) - 3.0);
+    const width = Math.min(BASE_WIDTH + extraPausedFrames * 0.2, MAX_WIDTH);
 
-  for (let i = sampleRate; i < frames.length; i += sampleRate) {
-    const prevFrame = frames[i - sampleRate];
-    const currentFrame = frames[i];
-
-    // Calculate control point (midpoint for smooth curve)
-    const controlX = (prevFrame.endEffectorPosition.x + currentFrame.endEffectorPosition.x) / 2;
-    const controlY = (prevFrame.endEffectorPosition.y + currentFrame.endEffectorPosition.y) / 2;
-
-    ctx.quadraticCurveTo(
-      prevFrame.endEffectorPosition.x,
-      prevFrame.endEffectorPosition.y,
-      controlX,
-      controlY
-    );
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(prev.endEffectorPosition.x, prev.endEffectorPosition.y);
+    ctx.lineTo(curr.endEffectorPosition.x, curr.endEffectorPosition.y);
+    ctx.stroke();
   }
 
-  // Draw to the last frame
-  const lastFrame = frames[frames.length - 1];
-  ctx.lineTo(lastFrame.endEffectorPosition.x, lastFrame.endEffectorPosition.y);
-
-  ctx.stroke();
   ctx.globalAlpha = 1.0;
 }
 
@@ -371,13 +361,13 @@ function drawRoboticGripper(
 
   // Upper finger
   ctx.beginPath();
-  ctx.roundRect(8, -8, 12, 5, 2);
+  ctx.rect(8, -8, 12, 5);
   ctx.fill();
   ctx.stroke();
 
   // Lower finger
   ctx.beginPath();
-  ctx.roundRect(8, 3, 12, 5, 2);
+  ctx.rect(8, 3, 12, 5);
   ctx.fill();
   ctx.stroke();
 

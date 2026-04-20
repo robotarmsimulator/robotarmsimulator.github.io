@@ -27,7 +27,8 @@ function AppContent() {
     setCurrentTrajectory,
     currentTrajectory,
     setRobotConfig,
-    robotConfig
+    robotConfig,
+    currentAttemptCount
   } = useAppContext();
 
   // Initialize new motion when entering recording state or moving to next prompt
@@ -47,16 +48,18 @@ function AppContent() {
       setTargetPosition(activePose.targetPosition);
       setCurrentTrajectory({
         frames: [],
-        startPosition: { x: 50, y: 50 }, // Default start position
+        startPosition: { x: 50, y: 50 },
         targetPosition: activePose.targetPosition,
         promptType: currentPromptType,
         promptText,
         completed: false,
-        attemptCount: 1,
+        attemptCount: currentAttemptCount,
+        replayCount: 0,
+        eventLog: [],
         totalTimeMs: 0
       });
     }
-  }, [appState, userSession, currentTrajectory]);
+  }, [appState, userSession, currentTrajectory, currentAttemptCount]);
 
   // Render appropriate screen based on app state
   if (appState === 'splash') {
@@ -89,7 +92,7 @@ function AppContent() {
         <Controls />
       </div>
       <footer className="app-footer">
-        Robot Arm Simulator v8.0 | Created by Damien Pearl |
+        Robot Arm Simulator v8.1.0 | Created by Damien Pearl |
         <a href="https://github.com/dmprgm/robot-arm-sim_v8.0.0" target="_blank" rel="noopener noreferrer"> GitHub</a>
       </footer>
     </>
