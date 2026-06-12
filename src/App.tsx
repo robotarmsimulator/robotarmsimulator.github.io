@@ -93,7 +93,7 @@ function AppContent() {
       </div>
       <footer className="app-footer">
         Robot Arm Simulator v8.1.0 | Created by Damien Pearl |
-        <a href="https://github.com/dmprgm/robot-arm-sim_v8.0.0" target="_blank" rel="noopener noreferrer"> GitHub</a>
+        <a href="https://github.com/robotarmsimulator/robotarmsimulator.github.io" target="_blank" rel="noopener noreferrer"> GitHub</a>
       </footer>
     </>
   );
